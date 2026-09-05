@@ -38,8 +38,14 @@
     color:var(--text);
   }
   .brand span{ color:var(--amber); font-style:normal; }
+  .topbar-right{ display:flex; gap:14px; align-items:center; }
   .master-readout{ display:flex; gap:18px; align-items:center; color:var(--text-dim); font-size:13px;}
   .bpm{font-size:20px; color:var(--cyan); font-variant-numeric: tabular-nums;}
+  .lib-btn{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer;
+  }
+  .lib-btn:active{ transform:scale(0.96); }
 
   .deck{
     background:var(--panel);
@@ -49,17 +55,28 @@
     display:flex; flex-direction:column; gap:10px;
     min-height:0;
   }
-  .deck-header{ display:flex; justify-content:space-between; align-items:center; }
-  .track-name{ font-size:14px; color:var(--text); }
+  .deck-header{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .track-name{ font-size:14px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .track-name.empty{ color:var(--text-dim); font-style:italic; }
+  .header-btns{ display:flex; gap:6px; flex-shrink:0; }
   .load-btn{
     background:transparent; border:1px solid var(--line); color:var(--text-dim);
     padding:5px 10px; border-radius:6px; font-size:12px; cursor:pointer;
   }
   .load-btn:active{ background:var(--panel-raised); }
 
+  .deck-readout{ display:flex; gap:12px; align-items:center; font-size:11px; color:var(--text-dim); }
+  .deck-readout .bpm-val{ color:var(--amber); font-weight:600; font-variant-numeric: tabular-nums; }
+  .deckR .deck-readout .bpm-val{ color:var(--cyan); }
+  .sync-btn{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text-dim);
+    padding:3px 9px; border-radius:5px; font-size:11px; cursor:pointer;
+  }
+  .sync-btn.active{ background:var(--amber); color:#1a1210; border-color:var(--amber); }
+  .deckR .sync-btn.active{ background:var(--cyan); color:#0a1a1c; border-color:var(--cyan); }
+
   canvas.waveform{
-    width:100%; height:56px; background:#0a090d; border-radius:6px; border:1px solid var(--line);
+    width:100%; height:52px; background:#0a090d; border-radius:6px; border:1px solid var(--line);
     display:block;
   }
 
@@ -69,7 +86,7 @@
     display:flex; flex-direction:column; align-items:center; gap:8px; flex:1;
   }
   .jogwheel{
-    width:min(220px, 30vw); aspect-ratio:1/1; border-radius:50%;
+    width:min(200px, 27vw); aspect-ratio:1/1; border-radius:50%;
     background: radial-gradient(circle at 35% 30%, #2a2432, #131019 70%);
     border:3px solid var(--line);
     position:relative;
@@ -82,42 +99,49 @@
   }
   .jogwheel .marker{
     position:absolute; top:6px; left:50%; width:4px; height:16px;
-    background:var(--amber); border-radius:2px; transform-origin: 2px 104px;
+    background:var(--amber); border-radius:2px; transform-origin: 2px 94px;
   }
-  .deckL .marker{ background:var(--amber); }
   .deckR .marker{ background:var(--cyan); }
   .jogwheel .center-label{
     font-size:11px; color:var(--text-dim); letter-spacing:1px;
   }
   .playing .center-label{ color:var(--text); }
 
-  .transport{ display:flex; gap:8px; justify-content:center; }
+  .transport{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
   .tbtn{
-    width:52px; height:44px; border-radius:8px; border:1px solid var(--line);
-    background:var(--panel-raised); color:var(--text); font-size:16px;
+    width:46px; height:38px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-raised); color:var(--text); font-size:14px;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .tbtn.active{ background:var(--amber); color:#1a1210; border-color:var(--amber); }
   .deckR .tbtn.active{ background:var(--cyan); color:#0a1a1c; border-color:var(--cyan); }
   .tbtn:active{ transform:scale(0.94); }
 
-  .sidecol{ display:flex; flex-direction:column; gap:10px; width:80px; }
-  .eq{ display:flex; flex-direction:column; gap:10px; align-items:center; }
+  .loop-row{ display:flex; gap:4px; justify-content:center; }
+  .loop-btn{
+    padding:4px 8px; border-radius:5px; border:1px solid var(--line);
+    background:var(--panel-raised); color:var(--text-dim); font-size:10px; cursor:pointer;
+  }
+  .loop-btn.active{ background:#3a2a12; border-color:var(--amber); color:var(--amber); }
+  .deckR .loop-btn.active{ background:#0f2f33; border-color:var(--cyan); color:var(--cyan); }
+
+  .sidecol{ display:flex; flex-direction:column; gap:8px; width:76px; }
+  .eq{ display:flex; flex-direction:column; gap:8px; align-items:center; }
   .knob-label{ font-size:10px; color:var(--text-dim); letter-spacing:1px; }
   .knob{
-    width:52px; height:52px; border-radius:50%;
-    background:conic-gradient(var(--panel-raised) 0deg, var(--panel-raised) 360deg);
+    width:46px; height:46px; border-radius:50%;
+    background:var(--panel-raised);
     border:2px solid var(--line);
     position:relative; touch-action:none;
   }
   .knob .indicator{
-    position:absolute; top:4px; left:50%; width:3px; height:20px;
-    background:var(--text); border-radius:2px; transform-origin: 1.5px 22px;
+    position:absolute; top:4px; left:50%; width:3px; height:18px;
+    background:var(--text); border-radius:2px; transform-origin: 1.5px 19px;
   }
 
-  .hotcues{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .hotcues{ display:grid; grid-template-columns:1fr 1fr; gap:5px; }
   .cue{
-    height:40px; border-radius:6px; border:1px solid var(--line);
+    height:34px; border-radius:6px; border:1px solid var(--line);
     background:var(--panel-raised); color:var(--text-dim); font-size:11px;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
@@ -127,43 +151,87 @@
   .mixer{
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
     display:flex; flex-direction:column; align-items:center; justify-content:space-between;
-    padding:16px 10px;
+    padding:14px 10px;
   }
-  .gain-row{ display:flex; gap:20px; }
+  .gain-row{ display:flex; gap:18px; }
   .gain{ display:flex; flex-direction:column; align-items:center; gap:6px; }
   .fader-v{
-    width:36px; height:150px; border-radius:6px; background:var(--panel-raised);
+    width:34px; height:130px; border-radius:6px; background:var(--panel-raised);
     border:1px solid var(--line); position:relative; touch-action:none;
   }
   .fader-v .handle{
-    position:absolute; left:2px; width:32px; height:22px; border-radius:4px;
+    position:absolute; left:2px; width:30px; height:20px; border-radius:4px;
     background:var(--text-dim); bottom:0;
   }
   .gainL .handle{ background:var(--amber); }
   .gainR .handle{ background:var(--cyan); }
 
-  .crossfader-wrap{ width:100%; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .autogain-toggle{
+    display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-dim);
+    margin-top:4px; cursor:pointer;
+  }
+  .autogain-toggle .dot{ width:8px; height:8px; border-radius:50%; background:var(--line); }
+  .autogain-toggle.on .dot{ background:#5dd97a; }
+
+  .crossfader-wrap{ width:100%; display:flex; flex-direction:column; align-items:center; gap:6px; }
   .crossfader{
-    width:100%; height:36px; border-radius:8px; background:var(--panel-raised);
+    width:100%; height:32px; border-radius:8px; background:var(--panel-raised);
     border:1px solid var(--line); position:relative; touch-action:none;
   }
   .crossfader .handle{
-    position:absolute; top:2px; width:44px; height:30px; border-radius:6px;
+    position:absolute; top:2px; width:40px; height:26px; border-radius:6px;
     background:linear-gradient(90deg, var(--amber), var(--cyan));
-    left:calc(50% - 22px);
+    left:calc(50% - 20px);
   }
   .cf-labels{ display:flex; justify-content:space-between; width:100%; font-size:11px; color:var(--text-dim); }
 
   input[type=file]{ display:none; }
+
+  /* Library modal */
+  .lib-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50;
+    display:none; align-items:center; justify-content:center;
+  }
+  .lib-overlay.open{ display:flex; }
+  .lib-modal{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    width:min(560px, 92vw); max-height:80vh; display:flex; flex-direction:column;
+    padding:18px;
+  }
+  .lib-modal h3{ margin:0 0 12px; font-size:16px; }
+  .lib-add{ display:flex; gap:8px; margin-bottom:12px; }
+  .lib-add .load-btn{ padding:8px 14px; }
+  .lib-list{ overflow-y:auto; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .lib-item{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel-raised); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; font-size:13px;
+  }
+  .lib-item-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; margin-right:10px; }
+  .lib-item-bpm{ color:var(--text-dim); font-size:11px; margin-right:10px; }
+  .lib-item-btns{ display:flex; gap:6px; }
+  .lib-item-btns button{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+    padding:5px 9px; border-radius:5px; font-size:11px; cursor:pointer;
+  }
+  .lib-close{
+    margin-top:12px; align-self:flex-end;
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:8px 16px; border-radius:6px; cursor:pointer;
+  }
+  .lib-empty{ color:var(--text-dim); font-size:13px; font-style:italic; padding:20px 0; text-align:center; }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="topbar">
     <div class="brand">deck<span>pad</span></div>
-    <div class="master-readout">
-      <span>MASTER</span>
-      <span class="bpm" id="bpmReadout">— BPM</span>
+    <div class="topbar-right">
+      <div class="master-readout">
+        <span>MASTER</span>
+        <span class="bpm" id="bpmReadout">— BPM</span>
+      </div>
+      <button class="lib-btn" id="openLibBtn">📁 Library</button>
     </div>
   </div>
 
@@ -171,8 +239,14 @@
   <div class="deck deckL" id="deckL">
     <div class="deck-header">
       <div class="track-name empty" id="nameL">no track loaded</div>
-      <button class="load-btn" id="loadBtnL">LOAD</button>
-      <input type="file" id="fileL" accept="audio/*">
+      <div class="header-btns">
+        <button class="load-btn" id="loadBtnL">LOAD</button>
+        <input type="file" id="fileL" accept="audio/*">
+      </div>
+    </div>
+    <div class="deck-readout">
+      <span>BPM: <span class="bpm-val" id="bpmValL">—</span></span>
+      <button class="sync-btn" id="syncL">SYNC</button>
     </div>
     <canvas class="waveform" id="waveL"></canvas>
     <div class="deck-main">
@@ -185,6 +259,12 @@
         <div class="transport">
           <div class="tbtn" id="playL">▶</div>
           <div class="tbtn" id="cueL">CUE</div>
+        </div>
+        <div class="loop-row" id="loopRowL">
+          <div class="loop-btn" data-beats="4">4</div>
+          <div class="loop-btn" data-beats="8">8</div>
+          <div class="loop-btn" data-beats="16">16</div>
+          <div class="loop-btn" id="loopOffL" data-off="1">OFF</div>
         </div>
       </div>
       <div class="sidecol">
@@ -218,6 +298,7 @@
         <div class="fader-v" id="gainFaderR"><div class="handle" style="bottom:60%"></div></div>
       </div>
     </div>
+    <div class="autogain-toggle" id="autogainToggle"><div class="dot"></div><span>Auto-gain</span></div>
     <div class="crossfader-wrap">
       <div class="cf-labels"><span>A</span><span>B</span></div>
       <div class="crossfader" id="crossfader"><div class="handle" id="cfHandle"></div></div>
@@ -228,8 +309,14 @@
   <div class="deck deckR" id="deckR">
     <div class="deck-header">
       <div class="track-name empty" id="nameR">no track loaded</div>
-      <button class="load-btn" id="loadBtnR">LOAD</button>
-      <input type="file" id="fileR" accept="audio/*">
+      <div class="header-btns">
+        <button class="load-btn" id="loadBtnR">LOAD</button>
+        <input type="file" id="fileR" accept="audio/*">
+      </div>
+    </div>
+    <div class="deck-readout">
+      <span>BPM: <span class="bpm-val" id="bpmValR">—</span></span>
+      <button class="sync-btn" id="syncR">SYNC</button>
     </div>
     <canvas class="waveform" id="waveR"></canvas>
     <div class="deck-main">
@@ -242,6 +329,12 @@
         <div class="transport">
           <div class="tbtn" id="playR">▶</div>
           <div class="tbtn" id="cueR">CUE</div>
+        </div>
+        <div class="loop-row" id="loopRowR">
+          <div class="loop-btn" data-beats="4">4</div>
+          <div class="loop-btn" data-beats="8">8</div>
+          <div class="loop-btn" data-beats="16">16</div>
+          <div class="loop-btn" id="loopOffR" data-off="1">OFF</div>
         </div>
       </div>
       <div class="sidecol">
@@ -264,10 +357,66 @@
   </div>
 </div>
 
+<!-- Library modal -->
+<div class="lib-overlay" id="libOverlay">
+  <div class="lib-modal">
+    <h3>Track Library</h3>
+    <div class="lib-add">
+      <button class="load-btn" id="libAddBtn">+ Add tracks</button>
+      <input type="file" id="libFileInput" accept="audio/*" multiple>
+    </div>
+    <div class="lib-list" id="libList">
+      <div class="lib-empty">No tracks added yet. Add a few to build your set.</div>
+    </div>
+    <button class="lib-close" id="libCloseBtn">Close</button>
+  </div>
+</div>
+
 <script>
 const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-function makeDeck(id, colorVar){
+// ---------- Simple BPM detection (energy-based peak analysis) ----------
+function detectBPM(buffer){
+  const data = buffer.getChannelData(0);
+  const sampleRate = buffer.sampleRate;
+  // Downsample via low-pass-ish windowed energy envelope
+  const chunkSize = 1024;
+  const chunks = Math.floor(data.length / chunkSize);
+  const energies = new Float32Array(chunks);
+  for(let i=0;i<chunks;i++){
+    let sum=0;
+    const start = i*chunkSize;
+    for(let j=0;j<chunkSize;j++){
+      const v = data[start+j];
+      sum += v*v;
+    }
+    energies[i] = sum;
+  }
+  // find peaks above local average
+  const avg = energies.reduce((a,b)=>a+b,0)/energies.length;
+  const threshold = avg * 1.3;
+  const peakIntervals = [];
+  let lastPeak = -1;
+  for(let i=1;i<energies.length-1;i++){
+    if(energies[i] > threshold && energies[i] > energies[i-1] && energies[i] > energies[i+1]){
+      if(lastPeak >= 0){
+        const intervalSamples = (i - lastPeak) * chunkSize;
+        const intervalSec = intervalSamples / sampleRate;
+        if(intervalSec > 0.25 && intervalSec < 1.2) peakIntervals.push(intervalSec);
+      }
+      lastPeak = i;
+    }
+  }
+  if(peakIntervals.length < 4) return Math.round(90 + Math.random()*50);
+  peakIntervals.sort((a,b)=>a-b);
+  const median = peakIntervals[Math.floor(peakIntervals.length/2)];
+  let bpm = 60 / median;
+  while(bpm < 80) bpm *= 2;
+  while(bpm > 175) bpm /= 2;
+  return Math.round(bpm);
+}
+
+function makeDeck(id){
   const gainNode = ctx.createGain();
   const low = ctx.createBiquadFilter(); low.type='lowshelf'; low.frequency.value=320;
   const mid = ctx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=1000; mid.Q.value=0.8;
@@ -275,7 +424,9 @@ function makeDeck(id, colorVar){
   low.connect(mid); mid.connect(hi); hi.connect(gainNode);
   return {
     id, buffer:null, source:null, isPlaying:false, startedAt:0, pausedAt:0,
-    gainNode, low, mid, hi, cues:[null,null,null,null], rotation:0
+    gainNode, low, mid, hi, cues:[null,null,null,null], rotation:0,
+    bpm:null, baseBpm:null, playbackRate:1, loopBeats:null, loopStart:0, loopEnd:0,
+    faderPct:0.6
   };
 }
 
@@ -286,21 +437,54 @@ deckL.gainNode.connect(crossGain.L); crossGain.L.connect(ctx.destination);
 deckR.gainNode.connect(crossGain.R); crossGain.R.connect(ctx.destination);
 setCrossfade(0.5);
 
-function setCrossfade(x){ // x: 0=full L, 1=full R
+let autoGainOn = true;
+
+function setCrossfade(x){
   crossGain.L.gain.value = Math.cos(x * Math.PI/2);
   crossGain.R.gain.value = Math.sin(x * Math.PI/2);
 }
 
-async function loadFile(deck, file, nameEl, waveCanvas){
+function computeTargetGain(deck){
+  const base = deck.faderPct * 1.4;
+  if(!autoGainOn || !deck.buffer) return base;
+  // Normalize based on RMS of buffer: quieter tracks get boosted, louder tracks attenuated
+  const rms = deck._rms || 1;
+  const targetRms = 0.15;
+  const factor = Math.min(1.8, Math.max(0.5, targetRms / rms));
+  return base * factor;
+}
+
+function computeRMS(buffer){
+  const data = buffer.getChannelData(0);
+  let sum=0;
+  const step = Math.max(1, Math.floor(data.length/50000));
+  let n=0;
+  for(let i=0;i<data.length;i+=step){ sum += data[i]*data[i]; n++; }
+  return Math.sqrt(sum/n);
+}
+
+async function loadFile(deck, file, nameEl, waveCanvas, bpmValEl){
   const arrBuf = await file.arrayBuffer();
   const audioBuf = await ctx.decodeAudioData(arrBuf);
   deck.buffer = audioBuf;
   deck.pausedAt = 0;
+  deck.loopBeats = null;
+  deck._rms = computeRMS(audioBuf);
   nameEl.textContent = file.name;
   nameEl.classList.remove('empty');
   drawWaveform(audioBuf, waveCanvas);
-  const bpm = Math.round(90 + Math.random()*50);
-  document.getElementById('bpmReadout').textContent = bpm + ' BPM';
+  const bpm = detectBPM(audioBuf);
+  deck.bpm = bpm; deck.baseBpm = bpm;
+  bpmValEl.textContent = bpm;
+  updateMasterBpm();
+  deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
+}
+
+function updateMasterBpm(){
+  const readout = document.getElementById('bpmReadout');
+  if(deckL.isPlaying && deckL.bpm) readout.textContent = Math.round(deckL.bpm * deckL.playbackRate) + ' BPM';
+  else if(deckR.isPlaying && deckR.bpm) readout.textContent = Math.round(deckR.bpm * deckR.playbackRate) + ' BPM';
+  else readout.textContent = '— BPM';
 }
 
 function drawWaveform(buffer, canvas){
@@ -331,40 +515,71 @@ function playDeck(deck, btn){
   if(ctx.state === 'suspended') ctx.resume();
   const src = ctx.createBufferSource();
   src.buffer = deck.buffer;
+  src.playbackRate.value = deck.playbackRate;
   src.connect(deck.low);
   const offset = deck.pausedAt || 0;
+  if(deck.loopBeats && deck.bpm){
+    src.loop = true;
+    src.loopStart = deck.loopStart;
+    src.loopEnd = deck.loopEnd;
+  }
   src.start(0, offset);
   deck.source = src;
-  deck.startedAt = ctx.currentTime - offset;
+  deck.startedAt = ctx.currentTime - offset/deck.playbackRate;
   deck.isPlaying = true;
   btn.textContent = '❚❚';
   btn.classList.add('active');
+  updateMasterBpm();
 }
 
 function pauseDeck(deck, btn){
   if(!deck.source) return;
-  deck.pausedAt = ctx.currentTime - deck.startedAt;
+  deck.pausedAt = (ctx.currentTime - deck.startedAt) * deck.playbackRate;
   deck.source.stop();
   deck.source = null;
   deck.isPlaying = false;
   btn.textContent = '▶';
   btn.classList.remove('active');
+  updateMasterBpm();
 }
 
-function setupDeck(prefix, deck, colorClass){
+function setLoop(deck, beats, jogWrap){
+  if(!deck.buffer || !deck.bpm) return;
+  const secPerBeat = 60/deck.bpm;
+  const loopLenSec = secPerBeat * beats;
+  const currentPos = deck.isPlaying ? (ctx.currentTime - deck.startedAt)*deck.playbackRate : deck.pausedAt;
+  deck.loopStart = currentPos;
+  deck.loopEnd = Math.min(deck.buffer.duration, currentPos + loopLenSec);
+  deck.loopBeats = beats;
+  if(deck.isPlaying && deck.source){
+    deck.source.loop = true;
+    deck.source.loopStart = deck.loopStart;
+    deck.source.loopEnd = deck.loopEnd;
+  }
+}
+
+function clearLoop(deck){
+  deck.loopBeats = null;
+  if(deck.source) deck.source.loop = false;
+}
+
+function setupDeck(prefix, deck){
   const fileInput = document.getElementById('file'+prefix);
   const loadBtn = document.getElementById('loadBtn'+prefix);
   const nameEl = document.getElementById('name'+prefix);
   const waveCanvas = document.getElementById('wave'+prefix);
+  const bpmValEl = document.getElementById('bpmVal'+prefix);
+  const syncBtn = document.getElementById('sync'+prefix);
   const playBtn = document.getElementById('play'+prefix);
   const cueBtn = document.getElementById('cue'+prefix);
   const jog = document.getElementById('jog'+prefix);
   const marker = document.getElementById('marker'+prefix);
   const cuesWrap = document.getElementById('cues'+prefix);
+  const loopRow = document.getElementById('loopRow'+prefix);
 
   loadBtn.addEventListener('click', ()=> fileInput.click());
   fileInput.addEventListener('change', e=>{
-    if(e.target.files[0]) loadFile(deck, e.target.files[0], nameEl, waveCanvas);
+    if(e.target.files[0]) loadFile(deck, e.target.files[0], nameEl, waveCanvas, bpmValEl);
   });
 
   playBtn.addEventListener('click', ()=>{
@@ -376,7 +591,31 @@ function setupDeck(prefix, deck, colorClass){
     deck.pausedAt = 0;
   });
 
-  // Jogwheel touch -> scratch/rotate feedback + pitch bend feel
+  syncBtn.addEventListener('click', ()=>{
+    const other = deck===deckL ? deckR : deckL;
+    if(!other.bpm || !deck.baseBpm) return;
+    deck.playbackRate = other.bpm * other.playbackRate / deck.baseBpm;
+    deck.bpm = deck.baseBpm * deck.playbackRate;
+    bpmValEl.textContent = Math.round(deck.bpm);
+    if(deck.source) deck.source.playbackRate.setTargetAtTime(deck.playbackRate, ctx.currentTime, 0.05);
+    syncBtn.classList.add('active');
+    updateMasterBpm();
+  });
+
+  // Loop buttons
+  loopRow.querySelectorAll('.loop-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      loopRow.querySelectorAll('.loop-btn').forEach(b=>b.classList.remove('active'));
+      if(btn.dataset.off){
+        clearLoop(deck);
+      } else {
+        setLoop(deck, +btn.dataset.beats);
+        btn.classList.add('active');
+      }
+    });
+  });
+
+  // Jogwheel touch
   let lastAngle=null;
   function angleFromEvent(clientX, clientY){
     const rect = jog.getBoundingClientRect();
@@ -398,10 +637,10 @@ function setupDeck(prefix, deck, colorClass){
     lastAngle = a;
     if(deck.isPlaying && deck.source){
       const bend = delta * 4;
-      deck.source.playbackRate.setTargetAtTime(1+bend, ctx.currentTime, 0.01);
+      deck.source.playbackRate.setTargetAtTime(deck.playbackRate + bend, ctx.currentTime, 0.01);
       clearTimeout(jog._resetTimer);
       jog._resetTimer = setTimeout(()=>{
-        if(deck.source) deck.source.playbackRate.setTargetAtTime(1, ctx.currentTime, 0.15);
+        if(deck.source) deck.source.playbackRate.setTargetAtTime(deck.playbackRate, ctx.currentTime, 0.15);
       }, 80);
     }
   });
@@ -435,7 +674,7 @@ function setupDeck(prefix, deck, colorClass){
       const i = +cueEl.dataset.i;
       if(!deck.buffer) return;
       if(deck.cues[i]===null){
-        deck.cues[i] = deck.isPlaying ? (ctx.currentTime - deck.startedAt) : deck.pausedAt;
+        deck.cues[i] = deck.isPlaying ? (ctx.currentTime - deck.startedAt)*deck.playbackRate : deck.pausedAt;
         cueEl.classList.add('set');
       } else {
         deck.pausedAt = deck.cues[i];
@@ -453,7 +692,8 @@ function setupDeck(prefix, deck, colorClass){
     let pct = 1 - (clientY - rect.top)/rect.height;
     pct = Math.max(0, Math.min(1, pct));
     handle.style.bottom = (pct*100)+'%';
-    deck.gainNode.gain.setTargetAtTime(pct*1.4, ctx.currentTime, 0.01);
+    deck.faderPct = pct;
+    deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.01);
   }
   fader.addEventListener('pointerdown', e=>{ fDragging=true; fader.setPointerCapture(e.pointerId); setFaderFromY(e.clientY); });
   fader.addEventListener('pointermove', e=>{ if(fDragging) setFaderFromY(e.clientY); });
@@ -471,12 +711,85 @@ function setCFFromX(clientX){
   const rect = cf.getBoundingClientRect();
   let pct = (clientX - rect.left) / rect.width;
   pct = Math.max(0, Math.min(1, pct));
-  cfHandle.style.left = `calc(${pct*100}% - 22px)`;
+  cfHandle.style.left = `calc(${pct*100}% - 20px)`;
   setCrossfade(pct);
 }
 cf.addEventListener('pointerdown', e=>{ cfDragging=true; cf.setPointerCapture(e.pointerId); setCFFromX(e.clientX); });
 cf.addEventListener('pointermove', e=>{ if(cfDragging) setCFFromX(e.clientX); });
 cf.addEventListener('pointerup', ()=> cfDragging=false);
+
+// Auto-gain toggle
+const autogainToggle = document.getElementById('autogainToggle');
+autogainToggle.classList.add('on');
+autogainToggle.addEventListener('click', ()=>{
+  autoGainOn = !autoGainOn;
+  autogainToggle.classList.toggle('on', autoGainOn);
+  [deckL, deckR].forEach(d=>{
+    if(d.buffer) d.gainNode.gain.setTargetAtTime(computeTargetGain(d), ctx.currentTime, 0.05);
+  });
+});
+
+// ---------- Library ----------
+const library = []; // {name, buffer, bpm, file}
+const libOverlay = document.getElementById('libOverlay');
+const libList = document.getElementById('libList');
+document.getElementById('openLibBtn').addEventListener('click', ()=> libOverlay.classList.add('open'));
+document.getElementById('libCloseBtn').addEventListener('click', ()=> libOverlay.classList.remove('open'));
+document.getElementById('libAddBtn').addEventListener('click', ()=> document.getElementById('libFileInput').click());
+
+document.getElementById('libFileInput').addEventListener('change', async (e)=>{
+  for(const file of e.target.files){
+    const arrBuf = await file.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrBuf);
+    const bpm = detectBPM(audioBuf);
+    library.push({ name:file.name, buffer:audioBuf, bpm, rms: computeRMS(audioBuf) });
+  }
+  renderLibrary();
+});
+
+function renderLibrary(){
+  if(library.length===0){
+    libList.innerHTML = '<div class="lib-empty">No tracks added yet. Add a few to build your set.</div>';
+    return;
+  }
+  libList.innerHTML = '';
+  library.forEach((track, idx)=>{
+    const item = document.createElement('div');
+    item.className = 'lib-item';
+    item.innerHTML = `
+      <span class="lib-item-name">${track.name}</span>
+      <span class="lib-item-bpm">${track.bpm} BPM</span>
+      <span class="lib-item-btns">
+        <button data-target="L" data-idx="${idx}">→ A</button>
+        <button data-target="R" data-idx="${idx}">→ B</button>
+      </span>
+    `;
+    libList.appendChild(item);
+  });
+  libList.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = +btn.dataset.idx;
+      const target = btn.dataset.target;
+      const track = library[idx];
+      const deck = target==='L' ? deckL : deckR;
+      const nameEl = document.getElementById('name'+target);
+      const waveCanvas = document.getElementById('wave'+target);
+      const bpmValEl = document.getElementById('bpmVal'+target);
+      deck.buffer = track.buffer;
+      deck.pausedAt = 0;
+      deck.loopBeats = null;
+      deck._rms = track.rms;
+      deck.bpm = track.bpm; deck.baseBpm = track.bpm;
+      nameEl.textContent = track.name;
+      nameEl.classList.remove('empty');
+      drawWaveform(track.buffer, waveCanvas);
+      bpmValEl.textContent = track.bpm;
+      deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
+      updateMasterBpm();
+      libOverlay.classList.remove('open');
+    });
+  });
+}
 
 window.addEventListener('resize', ()=>{
   if(deckL.buffer) drawWaveform(deckL.buffer, document.getElementById('waveL'));
