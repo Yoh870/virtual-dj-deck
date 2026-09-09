@@ -502,10 +502,10 @@ const deckR = makeDeck('R');
 const crossGain = { L: ctx.createGain(), R: ctx.createGain() };
 deckL.gainNode.connect(crossGain.L); crossGain.L.connect(ctx.destination);
 deckR.gainNode.connect(crossGain.R); crossGain.R.connect(ctx.destination);
-setCrossfade(0.5);
 
 let autoGainOn = true;
 let currentCfPct = 0.5;
+setCrossfade(0.5);
 
 function setCrossfade(x){
   currentCfPct = x;
