@@ -225,6 +225,36 @@
     opacity:0; pointer-events:none; transition:opacity 0.25s ease;
   }
   .lib-scrim.open{ opacity:1; pointer-events:auto; }
+
+  /* Keyboard shortcut legend */
+  .kb-btn{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer;
+  }
+  .kb-btn:active{ transform:scale(0.96); }
+  .kb-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:60;
+    display:none; align-items:center; justify-content:center;
+  }
+  .kb-overlay.open{ display:flex; }
+  .kb-panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:22px 26px; width:min(560px, 90vw); max-height:80vh; overflow-y:auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .kb-panel h3{ margin:0 0 14px; display:flex; justify-content:space-between; align-items:center; font-size:16px; }
+  .kb-panel-close{ background:transparent; border:none; color:var(--text-dim); font-size:18px; cursor:pointer; }
+  .kb-cols{ display:grid; grid-template-columns:1fr 1fr; gap:0 24px; }
+  .kb-col h4{ font-size:11px; letter-spacing:1px; color:var(--text-dim); margin:14px 0 8px; text-transform:uppercase; }
+  .kb-col h4:first-child{ margin-top:0; }
+  .kb-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; font-size:13px; }
+  .kb-row .keys{ display:flex; gap:4px; }
+  kbd{
+    background:var(--panel-raised); border:1px solid var(--line); border-bottom-width:2px;
+    border-radius:5px; padding:2px 7px; font-size:11px; font-family:inherit; color:var(--text);
+    min-width:18px; text-align:center;
+  }
+  .kb-hint{ font-size:11px; color:var(--text-dim); margin-top:14px; text-align:center; }
 </style>
 </head>
 <body>
@@ -236,7 +266,40 @@
         <span>MASTER</span>
         <span class="bpm" id="bpmReadout">— BPM</span>
       </div>
+      <button class="kb-btn" id="openKbBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
       <button class="lib-btn" id="openLibBtn">📁 Library</button>
+    </div>
+  </div>
+
+  <!-- keyboard shortcut legend -->
+  <div class="kb-overlay" id="kbOverlay">
+    <div class="kb-panel">
+      <h3>Keyboard Shortcuts <button class="kb-panel-close" id="kbCloseBtn">✕</button></h3>
+      <div class="kb-cols">
+        <div class="kb-col">
+          <h4>Deck A</h4>
+          <div class="kb-row"><span>Play / Pause</span><span class="keys"><kbd>Q</kbd></span></div>
+          <div class="kb-row"><span>Cue</span><span class="keys"><kbd>A</kbd></span></div>
+          <div class="kb-row"><span>Sync</span><span class="keys"><kbd>W</kbd></span></div>
+          <div class="kb-row"><span>Hot cues 1–4</span><span class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span></div>
+          <div class="kb-row"><span>Loop 4 / 8 / 16 / Off</span><span class="keys"><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd></span></div>
+        </div>
+        <div class="kb-col">
+          <h4>Deck B</h4>
+          <div class="kb-row"><span>Play / Pause</span><span class="keys"><kbd>P</kbd></span></div>
+          <div class="kb-row"><span>Cue</span><span class="keys"><kbd>L</kbd></span></div>
+          <div class="kb-row"><span>Sync</span><span class="keys"><kbd>O</kbd></span></div>
+          <div class="kb-row"><span>Hot cues 1–4</span><span class="keys"><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd><kbd>0</kbd></span></div>
+          <div class="kb-row"><span>Loop 4 / 8 / 16 / Off</span><span class="keys"><kbd>N</kbd><kbd>M</kbd><kbd>,</kbd><kbd>.</kbd></span></div>
+        </div>
+      </div>
+      <h4 style="font-size:11px; letter-spacing:1px; color:var(--text-dim); margin:14px 0 8px; text-transform:uppercase;">Mixer / Global</h4>
+      <div class="kb-row"><span>Nudge crossfader left / right</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></div>
+      <div class="kb-row"><span>Crossfader full A / center / full B</span><span class="keys"><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>Shift</kbd>+<kbd>↓</kbd> <kbd>Shift</kbd>+<kbd>→</kbd></span></div>
+      <div class="kb-row"><span>Toggle auto-gain</span><span class="keys"><kbd>G</kbd></span></div>
+      <div class="kb-row"><span>Toggle library</span><span class="keys"><kbd>Tab</kbd></span></div>
+      <div class="kb-row"><span>Show this legend</span><span class="keys"><kbd>?</kbd></span></div>
+      <div class="kb-hint">Shortcuts are disabled while typing in a text field.</div>
     </div>
   </div>
 
@@ -337,7 +400,7 @@
       <button class="sync-btn" id="syncR">SYNC</button>
       <span class="time-readout" id="timeR">0:00 / 0:00</span>
     </div>
-    <canvas class="waveform" id="waveR"></canvas></canvas>
+    <canvas class="waveform" id="waveR"></canvas>
     <div class="deck-main">
       <div class="jogwheel-wrap">
         <div class="jogwheel" id="jogR">
@@ -442,8 +505,10 @@ deckR.gainNode.connect(crossGain.R); crossGain.R.connect(ctx.destination);
 setCrossfade(0.5);
 
 let autoGainOn = true;
+let currentCfPct = 0.5;
 
 function setCrossfade(x){
+  currentCfPct = x;
   crossGain.L.gain.value = Math.cos(x * Math.PI/2);
   crossGain.R.gain.value = Math.sin(x * Math.PI/2);
 }
@@ -781,6 +846,11 @@ function setCFFromX(clientX){
   cfHandle.style.left = `calc(${pct*100}% - 20px)`;
   setCrossfade(pct);
 }
+function setCFPct(pct){
+  pct = Math.max(0, Math.min(1, pct));
+  cfHandle.style.left = `calc(${pct*100}% - 20px)`;
+  setCrossfade(pct);
+}
 cf.addEventListener('pointerdown', e=>{ cfDragging=true; cf.setPointerCapture(e.pointerId); setCFFromX(e.clientX); });
 cf.addEventListener('pointermove', e=>{ if(cfDragging) setCFFromX(e.clientX); });
 cf.addEventListener('pointerup', ()=> cfDragging=false);
@@ -788,13 +858,14 @@ cf.addEventListener('pointerup', ()=> cfDragging=false);
 // Auto-gain toggle
 const autogainToggle = document.getElementById('autogainToggle');
 autogainToggle.classList.add('on');
-autogainToggle.addEventListener('click', ()=>{
+function toggleAutoGain(){
   autoGainOn = !autoGainOn;
   autogainToggle.classList.toggle('on', autoGainOn);
   [deckL, deckR].forEach(d=>{
     if(d.buffer) d.gainNode.gain.setTargetAtTime(computeTargetGain(d), ctx.currentTime, 0.05);
   });
-});
+}
+autogainToggle.addEventListener('click', toggleAutoGain);
 
 // ---------- Library ----------
 const library = []; // {name, buffer, bpm, file}
@@ -870,6 +941,97 @@ function renderLibrary(){
 window.addEventListener('resize', ()=>{
   if(deckL.buffer) drawWaveform(deckL.buffer, document.getElementById('waveL'));
   if(deckR.buffer) drawWaveform(deckR.buffer, document.getElementById('waveR'));
+});
+
+// ---------- Keyboard shortcuts ----------
+const kbOverlay = document.getElementById('kbOverlay');
+const openKbBtn = document.getElementById('openKbBtn');
+const kbCloseBtn = document.getElementById('kbCloseBtn');
+function toggleKbOverlay(open){
+  const shouldOpen = open !== undefined ? open : !kbOverlay.classList.contains('open');
+  kbOverlay.classList.toggle('open', shouldOpen);
+}
+openKbBtn.addEventListener('click', ()=> toggleKbOverlay());
+kbCloseBtn.addEventListener('click', ()=> toggleKbOverlay(false));
+kbOverlay.addEventListener('click', (e)=>{ if(e.target === kbOverlay) toggleKbOverlay(false); });
+
+function triggerHotCue(deck, prefix, i){
+  if(!deck.buffer) return;
+  const cueEl = document.querySelector('#cues'+prefix+' [data-i="'+i+'"]');
+  const playBtn = document.getElementById('play'+prefix);
+  if(deck.cues[i]===null){
+    deck.cues[i] = deck.isPlaying ? (ctx.currentTime - deck.startedAt)*deck.playbackRate : deck.pausedAt;
+    if(cueEl) cueEl.classList.add('set');
+  } else {
+    deck.pausedAt = deck.cues[i];
+    if(deck.isPlaying){ pauseDeck(deck, playBtn); playDeck(deck, playBtn); }
+  }
+}
+
+function triggerLoop(deck, prefix, beatsOrOff){
+  const loopRow = document.getElementById('loopRow'+prefix);
+  loopRow.querySelectorAll('.loop-btn').forEach(b=>b.classList.remove('active'));
+  if(beatsOrOff === 'off'){
+    clearLoop(deck);
+  } else {
+    setLoop(deck, beatsOrOff);
+    const btn = loopRow.querySelector('[data-beats="'+beatsOrOff+'"]');
+    if(btn) btn.classList.add('active');
+  }
+}
+
+function triggerSync(deck, prefix){
+  const other = deck===deckL ? deckR : deckL;
+  if(!other.bpm || !deck.baseBpm) return;
+  deck.playbackRate = other.bpm * other.playbackRate / deck.baseBpm;
+  deck.bpm = deck.baseBpm * deck.playbackRate;
+  document.getElementById('bpmVal'+prefix).textContent = Math.round(deck.bpm);
+  if(deck.source) deck.source.playbackRate.setTargetAtTime(deck.playbackRate, ctx.currentTime, 0.05);
+  document.getElementById('sync'+prefix).classList.add('active');
+  updateMasterBpm();
+}
+
+document.addEventListener('keydown', (e)=>{
+  const tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea') return; // don't hijack typing
+
+  // '?' opens legend
+  if(e.key === '?'){ e.preventDefault(); toggleKbOverlay(); return; }
+  if(e.key === 'Escape'){ toggleKbOverlay(false); return; }
+
+  // Tab toggles library
+  if(e.key === 'Tab'){ e.preventDefault(); toggleLib(); return; }
+
+  // Global crossfader nudges
+  if(e.key === 'ArrowLeft' && !e.shiftKey){ e.preventDefault(); setCFPct(currentCfPct - 0.05); return; }
+  if(e.key === 'ArrowRight' && !e.shiftKey){ e.preventDefault(); setCFPct(currentCfPct + 0.05); return; }
+  if(e.shiftKey && e.key === 'ArrowLeft'){ e.preventDefault(); setCFPct(0); return; }
+  if(e.shiftKey && e.key === 'ArrowRight'){ e.preventDefault(); setCFPct(1); return; }
+  if(e.shiftKey && e.key === 'ArrowDown'){ e.preventDefault(); setCFPct(0.5); return; }
+
+  if(e.key === 'g' || e.key === 'G'){ toggleAutoGain(); return; }
+
+  const k = e.key.toLowerCase();
+
+  // Deck A
+  if(k === 'q'){ e.preventDefault(); const btn=document.getElementById('playL'); deckL.isPlaying ? pauseDeck(deckL, btn) : playDeck(deckL, btn); return; }
+  if(k === 'a'){ e.preventDefault(); const btn=document.getElementById('playL'); if(deckL.isPlaying) pauseDeck(deckL, btn); deckL.pausedAt = 0; return; }
+  if(k === 'w'){ e.preventDefault(); triggerSync(deckL, 'L'); return; }
+  if(['1','2','3','4'].includes(e.key)){ e.preventDefault(); triggerHotCue(deckL, 'L', +e.key - 1); return; }
+  if(k === 'z'){ e.preventDefault(); triggerLoop(deckL, 'L', 4); return; }
+  if(k === 'x'){ e.preventDefault(); triggerLoop(deckL, 'L', 8); return; }
+  if(k === 'c'){ e.preventDefault(); triggerLoop(deckL, 'L', 16); return; }
+  if(k === 'v'){ e.preventDefault(); triggerLoop(deckL, 'L', 'off'); return; }
+
+  // Deck B
+  if(k === 'p'){ e.preventDefault(); const btn=document.getElementById('playR'); deckR.isPlaying ? pauseDeck(deckR, btn) : playDeck(deckR, btn); return; }
+  if(k === 'l'){ e.preventDefault(); const btn=document.getElementById('playR'); if(deckR.isPlaying) pauseDeck(deckR, btn); deckR.pausedAt = 0; return; }
+  if(k === 'o'){ e.preventDefault(); triggerSync(deckR, 'R'); return; }
+  if(['7','8','9','0'].includes(e.key)){ e.preventDefault(); const map={'7':0,'8':1,'9':2,'0':3}; triggerHotCue(deckR, 'R', map[e.key]); return; }
+  if(k === 'n'){ e.preventDefault(); triggerLoop(deckR, 'R', 4); return; }
+  if(k === 'm'){ e.preventDefault(); triggerLoop(deckR, 'R', 8); return; }
+  if(e.key === ','){ e.preventDefault(); triggerLoop(deckR, 'R', 16); return; }
+  if(e.key === '.'){ e.preventDefault(); triggerLoop(deckR, 'R', 'off'); return; }
 });
 </script>
 </body>
