@@ -255,6 +255,32 @@
     min-width:18px; text-align:center;
   }
   .kb-hint{ font-size:11px; color:var(--text-dim); margin-top:14px; text-align:center; }
+
+  /* Key-hint badges shown on the actual controls */
+  .khint{
+    position:absolute; top:-6px; right:-6px;
+    background:var(--bg); border:1px solid var(--line); color:var(--text-dim);
+    font-size:9px; line-height:1; padding:2px 4px; border-radius:4px;
+    pointer-events:none; letter-spacing:0.5px;
+  }
+  .tbtn, .sync-btn, .cue, .loop-btn{ position:relative; overflow:visible; }
+
+  /* Loading overlay per-deck */
+  .deck{ position:relative; }
+  .deck-loading{
+    position:absolute; inset:0; background:rgba(14,12,16,0.85); border-radius:10px;
+    display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px;
+    z-index:20;
+  }
+  .deck-loading.show{ display:flex; }
+  .spinner{
+    width:34px; height:34px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--amber);
+    animation:spin 0.8s linear infinite;
+  }
+  .deckR .spinner{ border-top-color:var(--cyan); }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .deck-loading span{ font-size:12px; color:var(--text-dim); }
 </style>
 </head>
 <body>
@@ -267,7 +293,7 @@
         <span class="bpm" id="bpmReadout">— BPM</span>
       </div>
       <button class="kb-btn" id="openKbBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
-      <button class="lib-btn" id="openLibBtn">📁 Library</button>
+      <button class="lib-btn" id="openLibBtn" title="Open track library (Tab)">📁 Library</button>
     </div>
   </div>
 
@@ -317,16 +343,17 @@
   </div>
   <!-- DECK L -->
   <div class="deck deckL" id="deckL">
+    <div class="deck-loading" id="loadingL"><div class="spinner"></div><span>Loading track…</span></div>
     <div class="deck-header">
       <div class="track-name empty" id="nameL">no track loaded</div>
       <div class="header-btns">
-        <button class="load-btn" id="loadBtnL">LOAD</button>
+        <button class="load-btn" id="loadBtnL" title="Load an audio file into Deck A">LOAD</button>
         <input type="file" id="fileL" accept="audio/*">
       </div>
     </div>
     <div class="deck-readout">
       <span>BPM: <span class="bpm-val" id="bpmValL">—</span></span>
-      <button class="sync-btn" id="syncL">SYNC</button>
+      <button class="sync-btn" id="syncL">SYNC<span class="khint">W</span></button>
       <span class="time-readout" id="timeL">0:00 / 0:00</span>
     </div>
     <canvas class="waveform" id="waveL"></canvas>
@@ -338,30 +365,30 @@
           <div class="center-label">DECK A</div>
         </div>
         <div class="transport">
-          <div class="tbtn" id="playL">▶</div>
-          <div class="tbtn" id="cueL">CUE</div>
+          <div class="tbtn" id="playL" title="Play/Pause (Q)">▶<span class="khint">Q</span></div>
+          <div class="tbtn" id="cueL" title="Cue / jump to start (A)">CUE<span class="khint">A</span></div>
         </div>
         <div class="loop-row" id="loopRowL">
-          <div class="loop-btn" data-beats="4">4</div>
-          <div class="loop-btn" data-beats="8">8</div>
-          <div class="loop-btn" data-beats="16">16</div>
-          <div class="loop-btn" id="loopOffL" data-off="1">OFF</div>
+          <div class="loop-btn" data-beats="4" title="Loop 4 beats (Z)">4<span class="khint">Z</span></div>
+          <div class="loop-btn" data-beats="8" title="Loop 8 beats (X)">8<span class="khint">X</span></div>
+          <div class="loop-btn" data-beats="16" title="Loop 16 beats (C)">16<span class="khint">C</span></div>
+          <div class="loop-btn" id="loopOffL" data-off="1" title="Loop off (V)">OFF<span class="khint">V</span></div>
         </div>
       </div>
       <div class="sidecol">
         <div class="eq">
           <div class="knob-label">HI</div>
-          <div class="knob" id="hiL"><div class="indicator"></div></div>
+          <div class="knob" id="hiL" title="Drag up/down to adjust high frequencies"><div class="indicator"></div></div>
           <div class="knob-label">MID</div>
-          <div class="knob" id="midL"><div class="indicator"></div></div>
+          <div class="knob" id="midL" title="Drag up/down to adjust mid frequencies"><div class="indicator"></div></div>
           <div class="knob-label">LOW</div>
-          <div class="knob" id="lowL"><div class="indicator"></div></div>
+          <div class="knob" id="lowL" title="Drag up/down to adjust low frequencies"><div class="indicator"></div></div>
         </div>
         <div class="hotcues" id="cuesL">
-          <div class="cue" data-i="0">1</div>
-          <div class="cue" data-i="1">2</div>
-          <div class="cue" data-i="2">3</div>
-          <div class="cue" data-i="3">4</div>
+          <div class="cue" data-i="0" title="Hot cue 1 (key: 1)">1<span class="khint">1</span></div>
+          <div class="cue" data-i="1" title="Hot cue 2 (key: 2)">2<span class="khint">2</span></div>
+          <div class="cue" data-i="2" title="Hot cue 3 (key: 3)">3<span class="khint">3</span></div>
+          <div class="cue" data-i="3" title="Hot cue 4 (key: 4)">4<span class="khint">4</span></div>
         </div>
       </div>
     </div>
@@ -372,32 +399,33 @@
     <div class="gain-row">
       <div class="gain gainL">
         <div class="knob-label">GAIN A</div>
-        <div class="fader-v" id="gainFaderL"><div class="handle" style="bottom:60%"></div></div>
+        <div class="fader-v" id="gainFaderL" title="Deck A volume"><div class="handle" style="bottom:60%"></div></div>
       </div>
       <div class="gain gainR">
         <div class="knob-label">GAIN B</div>
-        <div class="fader-v" id="gainFaderR"><div class="handle" style="bottom:60%"></div></div>
+        <div class="fader-v" id="gainFaderR" title="Deck B volume"><div class="handle" style="bottom:60%"></div></div>
       </div>
     </div>
-    <div class="autogain-toggle" id="autogainToggle"><div class="dot"></div><span>Auto-gain</span></div>
+    <div class="autogain-toggle" id="autogainToggle" title="Auto-normalize volume between tracks (G)"><div class="dot"></div><span>Auto-gain</span></div>
     <div class="crossfader-wrap">
       <div class="cf-labels"><span>A</span><span>B</span></div>
-      <div class="crossfader" id="crossfader"><div class="handle" id="cfHandle"></div></div>
+      <div class="crossfader" id="crossfader" title="Blend between Deck A and B (←/→ keys)"><div class="handle" id="cfHandle"></div></div>
     </div>
   </div>
 
   <!-- DECK R -->
   <div class="deck deckR" id="deckR">
+    <div class="deck-loading" id="loadingR"><div class="spinner"></div><span>Loading track…</span></div>
     <div class="deck-header">
       <div class="track-name empty" id="nameR">no track loaded</div>
       <div class="header-btns">
-        <button class="load-btn" id="loadBtnR">LOAD</button>
+        <button class="load-btn" id="loadBtnR" title="Load an audio file into Deck B">LOAD</button>
         <input type="file" id="fileR" accept="audio/*">
       </div>
     </div>
     <div class="deck-readout">
       <span>BPM: <span class="bpm-val" id="bpmValR">—</span></span>
-      <button class="sync-btn" id="syncR">SYNC</button>
+      <button class="sync-btn" id="syncR">SYNC<span class="khint">O</span></button>
       <span class="time-readout" id="timeR">0:00 / 0:00</span>
     </div>
     <canvas class="waveform" id="waveR"></canvas>
@@ -409,30 +437,30 @@
           <div class="center-label">DECK B</div>
         </div>
         <div class="transport">
-          <div class="tbtn" id="playR">▶</div>
-          <div class="tbtn" id="cueR">CUE</div>
+          <div class="tbtn" id="playR" title="Play/Pause (P)">▶<span class="khint">P</span></div>
+          <div class="tbtn" id="cueR" title="Cue / jump to start (L)">CUE<span class="khint">L</span></div>
         </div>
         <div class="loop-row" id="loopRowR">
-          <div class="loop-btn" data-beats="4">4</div>
-          <div class="loop-btn" data-beats="8">8</div>
-          <div class="loop-btn" data-beats="16">16</div>
-          <div class="loop-btn" id="loopOffR" data-off="1">OFF</div>
+          <div class="loop-btn" data-beats="4" title="Loop 4 beats (N)">4<span class="khint">N</span></div>
+          <div class="loop-btn" data-beats="8" title="Loop 8 beats (M)">8<span class="khint">M</span></div>
+          <div class="loop-btn" data-beats="16" title="Loop 16 beats (,)">16<span class="khint">,</span></div>
+          <div class="loop-btn" id="loopOffR" data-off="1" title="Loop off (.)">OFF<span class="khint">.</span></div>
         </div>
       </div>
       <div class="sidecol">
         <div class="eq">
           <div class="knob-label">HI</div>
-          <div class="knob" id="hiR"><div class="indicator"></div></div>
+          <div class="knob" id="hiR" title="Drag up/down to adjust high frequencies"><div class="indicator"></div></div>
           <div class="knob-label">MID</div>
-          <div class="knob" id="midR"><div class="indicator"></div></div>
+          <div class="knob" id="midR" title="Drag up/down to adjust mid frequencies"><div class="indicator"></div></div>
           <div class="knob-label">LOW</div>
-          <div class="knob" id="lowR"><div class="indicator"></div></div>
+          <div class="knob" id="lowR" title="Drag up/down to adjust low frequencies"><div class="indicator"></div></div>
         </div>
         <div class="hotcues" id="cuesR">
-          <div class="cue" data-i="0">1</div>
-          <div class="cue" data-i="1">2</div>
-          <div class="cue" data-i="2">3</div>
-          <div class="cue" data-i="3">4</div>
+          <div class="cue" data-i="0" title="Hot cue 1 (key: 7)">1<span class="khint">7</span></div>
+          <div class="cue" data-i="1" title="Hot cue 2 (key: 8)">2<span class="khint">8</span></div>
+          <div class="cue" data-i="2" title="Hot cue 3 (key: 9)">3<span class="khint">9</span></div>
+          <div class="cue" data-i="3" title="Hot cue 4 (key: 0)">4<span class="khint">0</span></div>
         </div>
       </div>
     </div>
@@ -532,21 +560,26 @@ function computeRMS(buffer){
   return Math.sqrt(sum/n);
 }
 
-async function loadFile(deck, file, nameEl, waveCanvas, bpmValEl){
-  const arrBuf = await file.arrayBuffer();
-  const audioBuf = await ctx.decodeAudioData(arrBuf);
-  deck.buffer = audioBuf;
-  deck.pausedAt = 0;
-  deck.loopBeats = null;
-  deck._rms = computeRMS(audioBuf);
-  nameEl.textContent = file.name;
-  nameEl.classList.remove('empty');
-  drawWaveform(audioBuf, waveCanvas);
-  const bpm = detectBPM(audioBuf);
-  deck.bpm = bpm; deck.baseBpm = bpm;
-  bpmValEl.textContent = bpm;
-  updateMasterBpm();
-  deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
+async function loadFile(deck, file, nameEl, waveCanvas, bpmValEl, loadingEl){
+  if(loadingEl) loadingEl.classList.add('show');
+  try{
+    const arrBuf = await file.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrBuf);
+    deck.buffer = audioBuf;
+    deck.pausedAt = 0;
+    deck.loopBeats = null;
+    deck._rms = computeRMS(audioBuf);
+    nameEl.textContent = file.name;
+    nameEl.classList.remove('empty');
+    drawWaveform(audioBuf, waveCanvas);
+    const bpm = detectBPM(audioBuf);
+    deck.bpm = bpm; deck.baseBpm = bpm;
+    bpmValEl.textContent = bpm;
+    updateMasterBpm();
+    deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
+  } finally {
+    if(loadingEl) loadingEl.classList.remove('show');
+  }
 }
 
 function updateMasterBpm(){
@@ -691,10 +724,11 @@ function setupDeck(prefix, deck){
   const marker = document.getElementById('marker'+prefix);
   const cuesWrap = document.getElementById('cues'+prefix);
   const loopRow = document.getElementById('loopRow'+prefix);
+  const loadingEl = document.getElementById('loading'+prefix);
 
   loadBtn.addEventListener('click', ()=> fileInput.click());
   fileInput.addEventListener('change', e=>{
-    if(e.target.files[0]) loadFile(deck, e.target.files[0], nameEl, waveCanvas, bpmValEl);
+    if(e.target.files[0]) loadFile(deck, e.target.files[0], nameEl, waveCanvas, bpmValEl, loadingEl);
   });
 
   // Click/drag on waveform to seek (rewind or jump forward)
@@ -882,14 +916,19 @@ document.getElementById('libCloseBtn').addEventListener('click', ()=> toggleLib(
 libScrim.addEventListener('click', ()=> toggleLib(false));
 document.getElementById('libAddBtn').addEventListener('click', ()=> document.getElementById('libFileInput').click());
 
+const libAddBtn = document.getElementById('libAddBtn');
 document.getElementById('libFileInput').addEventListener('change', async (e)=>{
-  for(const file of e.target.files){
+  const originalText = libAddBtn.textContent;
+  for(let i=0;i<e.target.files.length;i++){
+    const file = e.target.files[i];
+    libAddBtn.textContent = `Loading ${i+1}/${e.target.files.length}…`;
     const arrBuf = await file.arrayBuffer();
     const audioBuf = await ctx.decodeAudioData(arrBuf);
     const bpm = detectBPM(audioBuf);
     library.push({ name:file.name, buffer:audioBuf, bpm, rms: computeRMS(audioBuf) });
+    renderLibrary();
   }
-  renderLibrary();
+  libAddBtn.textContent = originalText;
 });
 
 function renderLibrary(){
@@ -922,6 +961,8 @@ function renderLibrary(){
       const nameEl = document.getElementById('name'+target);
       const waveCanvas = document.getElementById('wave'+target);
       const bpmValEl = document.getElementById('bpmVal'+target);
+      const loadingEl = document.getElementById('loading'+target);
+      if(loadingEl) loadingEl.classList.add('show');
       deck.buffer = track.buffer;
       deck.pausedAt = 0;
       deck.loopBeats = null;
@@ -933,6 +974,7 @@ function renderLibrary(){
       bpmValEl.textContent = track.bpm;
       deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
       updateMasterBpm();
+      if(loadingEl) loadingEl.classList.remove('show');
       toggleLib(false);
     });
   });
