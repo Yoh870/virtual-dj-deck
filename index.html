@@ -304,6 +304,22 @@
   .fx-knob.active .indicator{ background:var(--amber); }
   .deckR .fx-knob.active .indicator{ background:var(--cyan); }
   .fx-label{ font-size:9px; color:var(--text-dim); letter-spacing:0.5px; }
+
+  /* Recording */
+  .rec-btn{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+  }
+  .rec-btn .dot{ width:9px; height:9px; border-radius:50%; background:#c0392b; }
+  .rec-btn.recording{ background:#3a1414; border-color:#c0392b; color:#ff8a7a; }
+  .rec-btn.recording .dot{ animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+  .rec-time{ font-variant-numeric: tabular-nums; font-size:12px; }
+  .rec-download{
+    background:#1c3a24; border:1px solid #5dd97a; color:#5dd97a;
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none;
+  }
 </style>
 </head>
 <body>
@@ -316,6 +332,8 @@
         <span class="bpm" id="bpmReadout">— BPM</span>
       </div>
       <button class="kb-btn" id="openKbBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
+      <button class="rec-btn" id="recBtn" title="Record the master mix (Space)"><span class="dot"></span><span id="recLabel">REC</span><span class="rec-time" id="recTime"></span></button>
+      <a class="rec-download" id="recDownload" style="display:none" download="deckpad-mix.webm" title="Download your recorded mix">⬇ Download mix</a>
       <button class="lib-btn" id="openLibBtn" title="Open track library (Tab)">📁 Library</button>
     </div>
   </div>
@@ -349,6 +367,7 @@
       <div class="kb-row"><span>Nudge crossfader left / right</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></div>
       <div class="kb-row"><span>Crossfader full A / center / full B</span><span class="keys"><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>Shift</kbd>+<kbd>↓</kbd> <kbd>Shift</kbd>+<kbd>→</kbd></span></div>
       <div class="kb-row"><span>Toggle auto-gain</span><span class="keys"><kbd>G</kbd></span></div>
+      <div class="kb-row"><span>Start / stop recording mix</span><span class="keys"><kbd>Space</kbd></span></div>
       <div class="kb-row"><span>Toggle library</span><span class="keys"><kbd>Tab</kbd></span></div>
       <div class="kb-row"><span>Show this legend</span><span class="keys"><kbd>?</kbd></span></div>
       <div class="kb-hint">Shortcuts are disabled while typing in a text field.</div>
@@ -609,6 +628,11 @@ const deckR = makeDeck('R');
 const crossGain = { L: ctx.createGain(), R: ctx.createGain() };
 deckL.gainNode.connect(crossGain.L); crossGain.L.connect(ctx.destination);
 deckR.gainNode.connect(crossGain.R); crossGain.R.connect(ctx.destination);
+
+// Recording tap: mirror the master bus into a MediaStreamDestination
+const recordDest = ctx.createMediaStreamDestination();
+crossGain.L.connect(recordDest);
+crossGain.R.connect(recordDest);
 
 let autoGainOn = true;
 let currentCfPct = 0.5;
@@ -1135,6 +1159,83 @@ window.addEventListener('resize', ()=>{
   if(deckR.buffer) drawWaveform(deckR.buffer, document.getElementById('waveR'));
 });
 
+// ---------- Recording ----------
+const recBtn = document.getElementById('recBtn');
+const recLabel = document.getElementById('recLabel');
+const recTime = document.getElementById('recTime');
+const recDownload = document.getElementById('recDownload');
+let mediaRecorder = null;
+let recChunks = [];
+let recStartTime = 0;
+let recTimerHandle = null;
+let isRecording = false;
+
+function pickRecorderMimeType(){
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  for(const c of candidates){
+    if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return '';
+}
+
+function formatRecTime(ms){
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60);
+  const s = totalSec%60;
+  return m + ':' + String(s).padStart(2,'0');
+}
+
+function startRecording(){
+  if(!window.MediaRecorder){
+    alert('Recording is not supported in this browser.');
+    return;
+  }
+  if(ctx.state === 'suspended') ctx.resume();
+  recChunks = [];
+  const mimeType = pickRecorderMimeType();
+  try{
+    mediaRecorder = mimeType ? new MediaRecorder(recordDest.stream, { mimeType }) : new MediaRecorder(recordDest.stream);
+  } catch(err){
+    alert('Could not start recording: ' + err.message);
+    return;
+  }
+  mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) recChunks.push(e.data); };
+  mediaRecorder.onstop = ()=>{
+    const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    recDownload.href = url;
+    const ext = (mediaRecorder.mimeType||'').includes('ogg') ? 'ogg' : 'webm';
+    recDownload.download = 'deckpad-mix-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.' + ext;
+    recDownload.style.display = 'inline-block';
+  };
+  mediaRecorder.start();
+  isRecording = true;
+  recStartTime = Date.now();
+  recBtn.classList.add('recording');
+  recLabel.textContent = 'STOP';
+  recDownload.style.display = 'none';
+  recTimerHandle = setInterval(()=>{
+    recTime.textContent = formatRecTime(Date.now() - recStartTime);
+  }, 250);
+}
+
+function stopRecording(){
+  if(mediaRecorder && isRecording){
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  recBtn.classList.remove('recording');
+  recLabel.textContent = 'REC';
+  clearInterval(recTimerHandle);
+  recTime.textContent = '';
+}
+
+function toggleRecording(){
+  if(isRecording) stopRecording();
+  else startRecording();
+}
+recBtn.addEventListener('click', toggleRecording);
+
 // ---------- Keyboard shortcuts ----------
 const kbOverlay = document.getElementById('kbOverlay');
 const openKbBtn = document.getElementById('openKbBtn');
@@ -1202,6 +1303,7 @@ document.addEventListener('keydown', (e)=>{
   if(e.shiftKey && e.key === 'ArrowDown'){ e.preventDefault(); setCFPct(0.5); return; }
 
   if(e.key === 'g' || e.key === 'G'){ toggleAutoGain(); return; }
+  if(e.key === ' '){ e.preventDefault(); toggleRecording(); return; }
 
   const k = e.key.toLowerCase();
 
