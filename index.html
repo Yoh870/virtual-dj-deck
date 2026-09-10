@@ -281,6 +281,29 @@
   .deckR .spinner{ border-top-color:var(--cyan); }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   .deck-loading span{ font-size:12px; color:var(--text-dim); }
+
+  /* Effects rack */
+  .fx-row{ display:flex; flex-direction:column; gap:6px; align-items:center; margin:2px 0; }
+  .fx-toggle{
+    width:100%; height:26px; border-radius:6px; border:1px solid var(--line);
+    background:var(--panel-raised); color:var(--text-dim); font-size:10px; letter-spacing:0.5px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative;
+  }
+  .fx-toggle.on{ background:#3a2a12; border-color:var(--amber); color:var(--amber); }
+  .deckR .fx-toggle.on{ background:#0f2f33; border-color:var(--cyan); color:var(--cyan); }
+  .fx-knob-wrap{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .fx-knob{
+    width:40px; height:40px; border-radius:50%;
+    background:var(--panel-raised); border:2px solid var(--line);
+    position:relative; touch-action:none;
+  }
+  .fx-knob .indicator{
+    position:absolute; top:3px; left:50%; width:3px; height:16px;
+    background:var(--text); border-radius:2px; transform-origin: 1.5px 17px;
+  }
+  .fx-knob.active .indicator{ background:var(--amber); }
+  .deckR .fx-knob.active .indicator{ background:var(--cyan); }
+  .fx-label{ font-size:9px; color:var(--text-dim); letter-spacing:0.5px; }
 </style>
 </head>
 <body>
@@ -309,6 +332,7 @@
           <div class="kb-row"><span>Sync</span><span class="keys"><kbd>W</kbd></span></div>
           <div class="kb-row"><span>Hot cues 1–4</span><span class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span></div>
           <div class="kb-row"><span>Loop 4 / 8 / 16 / Off</span><span class="keys"><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd></span></div>
+          <div class="kb-row"><span>Reverb / Echo</span><span class="keys"><kbd>E</kbd><kbd>R</kbd></span></div>
         </div>
         <div class="kb-col">
           <h4>Deck B</h4>
@@ -317,8 +341,10 @@
           <div class="kb-row"><span>Sync</span><span class="keys"><kbd>O</kbd></span></div>
           <div class="kb-row"><span>Hot cues 1–4</span><span class="keys"><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd><kbd>0</kbd></span></div>
           <div class="kb-row"><span>Loop 4 / 8 / 16 / Off</span><span class="keys"><kbd>N</kbd><kbd>M</kbd><kbd>,</kbd><kbd>.</kbd></span></div>
+          <div class="kb-row"><span>Reverb / Echo</span><span class="keys"><kbd>I</kbd><kbd>U</kbd></span></div>
         </div>
       </div>
+      <div class="kb-hint">Filter sweep knob is touch/drag only — swipe up/down on the FILTER knob per deck.</div>
       <h4 style="font-size:11px; letter-spacing:1px; color:var(--text-dim); margin:14px 0 8px; text-transform:uppercase;">Mixer / Global</h4>
       <div class="kb-row"><span>Nudge crossfader left / right</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></div>
       <div class="kb-row"><span>Crossfader full A / center / full B</span><span class="keys"><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>Shift</kbd>+<kbd>↓</kbd> <kbd>Shift</kbd>+<kbd>→</kbd></span></div>
@@ -389,6 +415,14 @@
           <div class="cue" data-i="1" title="Hot cue 2 (key: 2)">2<span class="khint">2</span></div>
           <div class="cue" data-i="2" title="Hot cue 3 (key: 3)">3<span class="khint">3</span></div>
           <div class="cue" data-i="3" title="Hot cue 4 (key: 4)">4<span class="khint">4</span></div>
+        </div>
+        <div class="fx-row">
+          <div class="fx-toggle" id="fxRevL" title="Reverb on/off (key: E)">REV<span class="khint">E</span></div>
+          <div class="fx-knob-wrap">
+            <div class="fx-knob" id="fxFiltL" title="Drag up/down: filter sweep (low ↔ high). Center = off"><div class="indicator"></div></div>
+            <div class="fx-label">FILTER</div>
+          </div>
+          <div class="fx-toggle" id="fxEchoL" title="Echo on/off (key: R)">ECHO<span class="khint">R</span></div>
         </div>
       </div>
     </div>
@@ -462,6 +496,14 @@
           <div class="cue" data-i="2" title="Hot cue 3 (key: 9)">3<span class="khint">9</span></div>
           <div class="cue" data-i="3" title="Hot cue 4 (key: 0)">4<span class="khint">0</span></div>
         </div>
+        <div class="fx-row">
+          <div class="fx-toggle" id="fxRevR" title="Reverb on/off (key: I)">REV<span class="khint">I</span></div>
+          <div class="fx-knob-wrap">
+            <div class="fx-knob" id="fxFiltR" title="Drag up/down: filter sweep (low ↔ high). Center = off"><div class="indicator"></div></div>
+            <div class="fx-label">FILTER</div>
+          </div>
+          <div class="fx-toggle" id="fxEchoR" title="Echo on/off (key: U)">ECHO<span class="khint">U</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -511,17 +553,54 @@ function detectBPM(buffer){
   return Math.round(bpm);
 }
 
+function createImpulseResponse(duration, decay){
+  const rate = ctx.sampleRate;
+  const length = rate * duration;
+  const impulse = ctx.createBuffer(2, length, rate);
+  for(let ch=0; ch<2; ch++){
+    const data = impulse.getChannelData(ch);
+    for(let i=0;i<length;i++){
+      data[i] = (Math.random()*2-1) * Math.pow(1 - i/length, decay);
+    }
+  }
+  return impulse;
+}
+const sharedImpulse = createImpulseResponse(2.2, 2.5);
+
 function makeDeck(id){
   const gainNode = ctx.createGain();
   const low = ctx.createBiquadFilter(); low.type='lowshelf'; low.frequency.value=320;
   const mid = ctx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=1000; mid.Q.value=0.8;
   const hi = ctx.createBiquadFilter(); hi.type='highshelf'; hi.frequency.value=3200;
-  low.connect(mid); mid.connect(hi); hi.connect(gainNode);
+
+  // Filter sweep fx: single biquad, bypassed at value 0
+  const fxFilter = ctx.createBiquadFilter(); fxFilter.type='allpass'; fxFilter.frequency.value=20000; fxFilter.Q.value=0.7;
+
+  // Dry path (always active)
+  const dryGain = ctx.createGain(); dryGain.gain.value = 1;
+
+  // Reverb send
+  const convolver = ctx.createConvolver(); convolver.buffer = sharedImpulse;
+  const reverbWet = ctx.createGain(); reverbWet.gain.value = 0;
+
+  // Echo/delay send with feedback
+  const delayNode = ctx.createDelay(2.0); delayNode.delayTime.value = 0.3;
+  const delayFeedback = ctx.createGain(); delayFeedback.gain.value = 0.35;
+  const echoWet = ctx.createGain(); echoWet.gain.value = 0;
+
+  low.connect(mid); mid.connect(hi); hi.connect(fxFilter);
+  fxFilter.connect(dryGain); dryGain.connect(gainNode);
+  fxFilter.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(gainNode);
+  fxFilter.connect(delayNode); delayNode.connect(delayFeedback); delayFeedback.connect(delayNode);
+  delayNode.connect(echoWet); echoWet.connect(gainNode);
+
   return {
     id, buffer:null, source:null, isPlaying:false, startedAt:0, pausedAt:0,
     gainNode, low, mid, hi, cues:[null,null,null,null], rotation:0,
     bpm:null, baseBpm:null, playbackRate:1, loopBeats:null, loopStart:0, loopEnd:0,
-    faderPct:0.6
+    faderPct:0.6,
+    fxFilter, reverbWet, delayNode, echoWet,
+    reverbOn:false, echoOn:false, filterVal:0
   };
 }
 
@@ -869,6 +948,77 @@ function setupDeck(prefix, deck){
 setupDeck('L', deckL);
 setupDeck('R', deckR);
 
+// ---------- Effects rack ----------
+function setFilterSweep(deck, val){
+  val = Math.max(-1, Math.min(1, val));
+  deck.filterVal = val;
+  const f = deck.fxFilter;
+  if(Math.abs(val) < 0.03){
+    f.type = 'allpass';
+    f.frequency.setTargetAtTime(20000, ctx.currentTime, 0.02);
+    return;
+  }
+  if(val < 0){
+    f.type = 'lowpass';
+    const freq = 240 * Math.pow(50, 1+val); // val -1..0 -> ~240..12000 inverted (muffled at -1)
+    f.frequency.setTargetAtTime(Math.max(120, freq), ctx.currentTime, 0.02);
+  } else {
+    f.type = 'highpass';
+    const freq = 100 * Math.pow(60, val); // val 0..1 -> 100..6000
+    f.frequency.setTargetAtTime(freq, ctx.currentTime, 0.02);
+  }
+}
+
+function toggleReverb(deck, btnEl){
+  deck.reverbOn = !deck.reverbOn;
+  deck.reverbWet.gain.setTargetAtTime(deck.reverbOn ? 0.38 : 0, ctx.currentTime, 0.03);
+  btnEl.classList.toggle('on', deck.reverbOn);
+}
+
+function toggleEcho(deck, btnEl){
+  deck.echoOn = !deck.echoOn;
+  if(deck.echoOn && deck.bpm){
+    // sync delay time to a quarter-note of current bpm (capped to node's max delay)
+    const quarterNote = 60 / (deck.bpm * deck.playbackRate);
+    deck.delayNode.delayTime.setTargetAtTime(Math.min(1.9, quarterNote), ctx.currentTime, 0.01);
+  }
+  deck.echoWet.gain.setTargetAtTime(deck.echoOn ? 0.32 : 0, ctx.currentTime, 0.03);
+  btnEl.classList.toggle('on', deck.echoOn);
+}
+
+function setupDeckFx(prefix, deck){
+  const revBtn = document.getElementById('fxRev'+prefix);
+  const echoBtn = document.getElementById('fxEcho'+prefix);
+  const filtKnob = document.getElementById('fxFilt'+prefix);
+  const indicator = filtKnob.querySelector('.indicator');
+
+  revBtn.addEventListener('click', ()=> toggleReverb(deck, revBtn));
+  echoBtn.addEventListener('click', ()=> toggleEcho(deck, echoBtn));
+
+  let dragging=false, startY=0, startVal=0;
+  filtKnob.addEventListener('pointerdown', e=>{
+    dragging=true; startY=e.clientY; startVal=deck.filterVal;
+    filtKnob.setPointerCapture(e.pointerId);
+  });
+  filtKnob.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dy = startY - e.clientY;
+    const val = Math.max(-1, Math.min(1, startVal + dy/100));
+    setFilterSweep(deck, val);
+    indicator.style.transform = `rotate(${val*135}deg)`;
+    filtKnob.classList.toggle('active', Math.abs(val) > 0.03);
+  });
+  filtKnob.addEventListener('pointerup', ()=> dragging=false);
+  filtKnob.addEventListener('pointercancel', ()=> dragging=false);
+  filtKnob.addEventListener('dblclick', ()=>{
+    setFilterSweep(deck, 0);
+    indicator.style.transform = 'rotate(0deg)';
+    filtKnob.classList.remove('active');
+  });
+}
+setupDeckFx('L', deckL);
+setupDeckFx('R', deckR);
+
 // Crossfader
 const cf = document.getElementById('crossfader');
 const cfHandle = document.getElementById('cfHandle');
@@ -1064,6 +1214,8 @@ document.addEventListener('keydown', (e)=>{
   if(k === 'x'){ e.preventDefault(); triggerLoop(deckL, 'L', 8); return; }
   if(k === 'c'){ e.preventDefault(); triggerLoop(deckL, 'L', 16); return; }
   if(k === 'v'){ e.preventDefault(); triggerLoop(deckL, 'L', 'off'); return; }
+  if(k === 'e'){ e.preventDefault(); toggleReverb(deckL, document.getElementById('fxRevL')); return; }
+  if(k === 'r'){ e.preventDefault(); toggleEcho(deckL, document.getElementById('fxEchoL')); return; }
 
   // Deck B
   if(k === 'p'){ e.preventDefault(); const btn=document.getElementById('playR'); deckR.isPlaying ? pauseDeck(deckR, btn) : playDeck(deckR, btn); return; }
@@ -1074,6 +1226,8 @@ document.addEventListener('keydown', (e)=>{
   if(k === 'm'){ e.preventDefault(); triggerLoop(deckR, 'R', 8); return; }
   if(e.key === ','){ e.preventDefault(); triggerLoop(deckR, 'R', 16); return; }
   if(e.key === '.'){ e.preventDefault(); triggerLoop(deckR, 'R', 'off'); return; }
+  if(k === 'i'){ e.preventDefault(); toggleReverb(deckR, document.getElementById('fxRevR')); return; }
+  if(k === 'u'){ e.preventDefault(); toggleEcho(deckR, document.getElementById('fxEchoR')); return; }
 });
 </script>
 </body>
