@@ -219,6 +219,35 @@
     padding:4px 0; border-radius:5px; font-size:11px; cursor:pointer; flex:1;
   }
   .lib-item-btns button:active{ background:var(--line); }
+
+  /* Library/Queue tabs */
+  .lib-tabs{ display:flex; gap:6px; margin-bottom:10px; flex-shrink:0; }
+  .lib-tab{
+    flex:1; text-align:center; padding:7px 0; border-radius:6px; border:1px solid var(--line);
+    background:transparent; color:var(--text-dim); font-size:12px; cursor:pointer;
+  }
+  .lib-tab.active{ background:var(--panel-raised); color:var(--text); border-color:var(--amber); }
+  .lib-pane{ display:none; flex:1; min-height:0; flex-direction:column; }
+  .lib-pane.active{ display:flex; }
+
+  .queue-item{
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel-raised); border:1px solid var(--line); border-radius:8px;
+    padding:6px 8px; font-size:12px;
+  }
+  .queue-pos{ color:var(--text-dim); font-size:10px; width:16px; flex-shrink:0; }
+  .queue-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .queue-btns{ display:flex; gap:4px; flex-shrink:0; }
+  .queue-btns button{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+    padding:3px 6px; border-radius:5px; font-size:10px; cursor:pointer;
+  }
+  .queue-btns button:active{ background:var(--line); }
+  .queue-btns .qremove{ color:#ff8a7a; border-color:#5a2a2a; }
+  .autoload-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 2px; margin-bottom:8px; flex-shrink:0; font-size:11px; color:var(--text-dim);
+  }
   .lib-empty{ color:var(--text-dim); font-size:12px; font-style:italic; padding:20px 0; text-align:center; }
   .lib-scrim{
     position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:35;
@@ -377,13 +406,28 @@
   <!-- library sidebar lives here in the grid, sibling of topbar -->
   <div class="lib-scrim" id="libScrim"></div>
   <div class="lib-sidebar" id="libSidebar">
-    <h3>Track Library <button class="lib-sidebar-close" id="libCloseBtn">✕</button></h3>
+    <h3>Tracks <button class="lib-sidebar-close" id="libCloseBtn">✕</button></h3>
     <div class="lib-add">
       <button class="load-btn" id="libAddBtn">+ Add tracks</button>
       <input type="file" id="libFileInput" accept="audio/*" multiple>
     </div>
-    <div class="lib-list" id="libList">
-      <div class="lib-empty">No tracks added yet. Add a few to build your set.</div>
+    <div class="lib-tabs">
+      <button class="lib-tab active" id="tabLibraryBtn" data-pane="library">Library</button>
+      <button class="lib-tab" id="tabQueueBtn" data-pane="queue">Queue <span id="queueCountBadge"></span></button>
+    </div>
+    <div class="lib-pane active" id="paneLibrary">
+      <div class="lib-list" id="libList">
+        <div class="lib-empty">No tracks added yet. Add a few to build your set.</div>
+      </div>
+    </div>
+    <div class="lib-pane" id="paneQueue">
+      <div class="autoload-row">
+        <span>Auto-load next on deck stop</span>
+        <div class="autogain-toggle" id="autoQueueToggle" title="When a deck's track ends, automatically load the next queued track into it"><div class="dot"></div></div>
+      </div>
+      <div class="lib-list" id="queueList">
+        <div class="lib-empty">Queue is empty. Add tracks from the Library tab.</div>
+      </div>
     </div>
   </div>
   <!-- DECK L -->
@@ -739,7 +783,7 @@ function seekTo(deck, timeSec, btn){
   if(!deck.buffer) return;
   timeSec = Math.max(0, Math.min(deck.buffer.duration, timeSec));
   const wasPlaying = deck.isPlaying;
-  if(deck.source){ deck.source.stop(); deck.source = null; }
+  if(deck.source){ deck._manualStop = true; deck.source.stop(); deck.source = null; }
   deck.pausedAt = timeSec;
   deck.isPlaying = false;
   if(wasPlaying) playDeck(deck, btn);
@@ -774,6 +818,20 @@ function playDeck(deck, btn){
     src.loopStart = deck.loopStart;
     src.loopEnd = deck.loopEnd;
   }
+  src.onended = ()=>{
+    if(deck._manualStop){ deck._manualStop = false; return; }
+    // Track reached its natural end
+    deck.isPlaying = false;
+    deck.pausedAt = 0;
+    btn.textContent = '▶';
+    btn.classList.remove('active');
+    updateMasterBpm();
+    if(autoQueueOn && queue.length > 0){
+      popNextQueued(deck.id);
+      const playBtnEl = document.getElementById('play'+deck.id);
+      setTimeout(()=> playDeck(deck, playBtnEl), 150);
+    }
+  };
   src.start(0, offset);
   deck.source = src;
   deck.startedAt = ctx.currentTime - offset/deck.playbackRate;
@@ -786,6 +844,7 @@ function playDeck(deck, btn){
 function pauseDeck(deck, btn){
   if(!deck.source) return;
   deck.pausedAt = (ctx.currentTime - deck.startedAt) * deck.playbackRate;
+  deck._manualStop = true;
   deck.source.stop();
   deck.source = null;
   deck.isPlaying = false;
@@ -1105,6 +1164,27 @@ document.getElementById('libFileInput').addEventListener('change', async (e)=>{
   libAddBtn.textContent = originalText;
 });
 
+function assignTrackToDeck(track, target){
+  const deck = target==='L' ? deckL : deckR;
+  const nameEl = document.getElementById('name'+target);
+  const waveCanvas = document.getElementById('wave'+target);
+  const bpmValEl = document.getElementById('bpmVal'+target);
+  const loadingEl = document.getElementById('loading'+target);
+  if(loadingEl) loadingEl.classList.add('show');
+  deck.buffer = track.buffer;
+  deck.pausedAt = 0;
+  deck.loopBeats = null;
+  deck._rms = track.rms;
+  deck.bpm = track.bpm; deck.baseBpm = track.bpm;
+  nameEl.textContent = track.name;
+  nameEl.classList.remove('empty');
+  drawWaveform(track.buffer, waveCanvas);
+  bpmValEl.textContent = track.bpm;
+  deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
+  updateMasterBpm();
+  if(loadingEl) loadingEl.classList.remove('show');
+}
+
 function renderLibrary(){
   if(library.length===0){
     libList.innerHTML = '<div class="lib-empty">No tracks added yet. Add a few to build your set.</div>';
@@ -1120,8 +1200,9 @@ function renderLibrary(){
         <span class="lib-item-bpm">${track.bpm} BPM</span>
       </div>
       <div class="lib-item-btns">
-        <button data-target="L" data-idx="${idx}">→ A</button>
-        <button data-target="R" data-idx="${idx}">→ B</button>
+        <button data-action="loadA" data-idx="${idx}">→ A</button>
+        <button data-action="loadB" data-idx="${idx}">→ B</button>
+        <button data-action="queue" data-idx="${idx}">+ Q</button>
       </div>
     `;
     libList.appendChild(item);
@@ -1129,27 +1210,93 @@ function renderLibrary(){
   libList.querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const idx = +btn.dataset.idx;
-      const target = btn.dataset.target;
+      const action = btn.dataset.action;
       const track = library[idx];
-      const deck = target==='L' ? deckL : deckR;
-      const nameEl = document.getElementById('name'+target);
-      const waveCanvas = document.getElementById('wave'+target);
-      const bpmValEl = document.getElementById('bpmVal'+target);
-      const loadingEl = document.getElementById('loading'+target);
-      if(loadingEl) loadingEl.classList.add('show');
-      deck.buffer = track.buffer;
-      deck.pausedAt = 0;
-      deck.loopBeats = null;
-      deck._rms = track.rms;
-      deck.bpm = track.bpm; deck.baseBpm = track.bpm;
-      nameEl.textContent = track.name;
-      nameEl.classList.remove('empty');
-      drawWaveform(track.buffer, waveCanvas);
-      bpmValEl.textContent = track.bpm;
-      deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
-      updateMasterBpm();
-      if(loadingEl) loadingEl.classList.remove('show');
-      toggleLib(false);
+      if(action === 'loadA'){ assignTrackToDeck(track, 'L'); toggleLib(false); }
+      else if(action === 'loadB'){ assignTrackToDeck(track, 'R'); toggleLib(false); }
+      else if(action === 'queue'){ addToQueue(idx); }
+    });
+  });
+}
+
+// ---------- Queue ----------
+const queue = []; // array of library indices, in play order
+const queueList = document.getElementById('queueList');
+const queueCountBadge = document.getElementById('queueCountBadge');
+const autoQueueToggle = document.getElementById('autoQueueToggle');
+let autoQueueOn = false;
+autoQueueToggle.addEventListener('click', ()=>{
+  autoQueueOn = !autoQueueOn;
+  autoQueueToggle.classList.toggle('on', autoQueueOn);
+});
+
+document.querySelectorAll('.lib-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.lib-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.lib-pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('pane'+(tab.dataset.pane==='library'?'Library':'Queue')).classList.add('active');
+  });
+});
+
+function addToQueue(idx){
+  queue.push(idx);
+  renderQueue();
+}
+
+function removeFromQueue(qIdx){
+  queue.splice(qIdx, 1);
+  renderQueue();
+}
+
+function moveQueueItem(qIdx, dir){
+  const newIdx = qIdx + dir;
+  if(newIdx < 0 || newIdx >= queue.length) return;
+  [queue[qIdx], queue[newIdx]] = [queue[newIdx], queue[qIdx]];
+  renderQueue();
+}
+
+function popNextQueued(target){
+  if(queue.length === 0) return;
+  const libIdx = queue.shift();
+  const track = library[libIdx];
+  if(track) assignTrackToDeck(track, target);
+  renderQueue();
+}
+
+function renderQueue(){
+  queueCountBadge.textContent = queue.length ? `(${queue.length})` : '';
+  if(queue.length === 0){
+    queueList.innerHTML = '<div class="lib-empty">Queue is empty. Add tracks from the Library tab.</div>';
+    return;
+  }
+  queueList.innerHTML = '';
+  queue.forEach((libIdx, qIdx)=>{
+    const track = library[libIdx];
+    const item = document.createElement('div');
+    item.className = 'queue-item';
+    item.innerHTML = `
+      <span class="queue-pos">${qIdx+1}</span>
+      <span class="queue-name">${track ? track.name : '(missing track)'}</span>
+      <div class="queue-btns">
+        <button data-act="up" data-q="${qIdx}" title="Move up">↑</button>
+        <button data-act="down" data-q="${qIdx}" title="Move down">↓</button>
+        <button data-act="toA" data-q="${qIdx}" title="Load to Deck A now">A</button>
+        <button data-act="toB" data-q="${qIdx}" title="Load to Deck B now">B</button>
+        <button class="qremove" data-act="remove" data-q="${qIdx}" title="Remove from queue">✕</button>
+      </div>
+    `;
+    queueList.appendChild(item);
+  });
+  queueList.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const qIdx = +btn.dataset.q;
+      const act = btn.dataset.act;
+      if(act === 'up') moveQueueItem(qIdx, -1);
+      else if(act === 'down') moveQueueItem(qIdx, 1);
+      else if(act === 'remove') removeFromQueue(qIdx);
+      else if(act === 'toA'){ const t=library[queue[qIdx]]; if(t) assignTrackToDeck(t,'L'); removeFromQueue(qIdx); toggleLib(false); }
+      else if(act === 'toB'){ const t=library[queue[qIdx]]; if(t) assignTrackToDeck(t,'R'); removeFromQueue(qIdx); toggleLib(false); }
     });
   });
 }
@@ -1158,6 +1305,7 @@ window.addEventListener('resize', ()=>{
   if(deckL.buffer) drawWaveform(deckL.buffer, document.getElementById('waveL'));
   if(deckR.buffer) drawWaveform(deckR.buffer, document.getElementById('waveR'));
 });
+
 
 // ---------- Recording ----------
 const recBtn = document.getElementById('recBtn');
