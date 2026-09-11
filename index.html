@@ -248,6 +248,17 @@
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     padding:8px 2px; margin-bottom:8px; flex-shrink:0; font-size:11px; color:var(--text-dim);
   }
+
+  /* Auto-DJ */
+  .autodj-btn{
+    width:100%; padding:10px 0; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-raised); color:var(--text-dim); font-size:12px; letter-spacing:0.5px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .autodj-btn .dot{ width:8px; height:8px; border-radius:50%; background:var(--line); }
+  .autodj-btn.on{ background:#3a2a12; border-color:var(--amber); color:var(--amber); }
+  .autodj-btn.on .dot{ background:#5dd97a; animation:pulse 1.2s infinite; }
+  .autodj-status{ font-size:10px; color:var(--text-dim); text-align:center; margin-top:4px; min-height:14px; }
   .lib-empty{ color:var(--text-dim); font-size:12px; font-style:italic; padding:20px 0; text-align:center; }
   .lib-scrim{
     position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:35;
@@ -349,6 +360,11 @@
     background:#1c3a24; border:1px solid #5dd97a; color:#5dd97a;
     padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none;
   }
+  .autodj-btn{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer;
+  }
+  .autodj-btn.active{ background:#2a1a3a; border-color:#b088ff; color:#c9a8ff; }
 </style>
 </head>
 <body>
@@ -363,6 +379,7 @@
       <button class="kb-btn" id="openKbBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
       <button class="rec-btn" id="recBtn" title="Record the master mix (Space)"><span class="dot"></span><span id="recLabel">REC</span><span class="rec-time" id="recTime"></span></button>
       <a class="rec-download" id="recDownload" style="display:none" download="deckpad-mix.webm" title="Download your recorded mix">⬇ Download mix</a>
+      <button class="autodj-btn" id="autoDjBtn" title="Auto-mix: automatically crossfades into the next queued track (key: D)">🔀 Auto DJ</button>
       <button class="lib-btn" id="openLibBtn" title="Open track library (Tab)">📁 Library</button>
     </div>
   </div>
@@ -397,6 +414,8 @@
       <div class="kb-row"><span>Crossfader full A / center / full B</span><span class="keys"><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>Shift</kbd>+<kbd>↓</kbd> <kbd>Shift</kbd>+<kbd>→</kbd></span></div>
       <div class="kb-row"><span>Toggle auto-gain</span><span class="keys"><kbd>G</kbd></span></div>
       <div class="kb-row"><span>Start / stop recording mix</span><span class="keys"><kbd>Space</kbd></span></div>
+      <div class="kb-row"><span>Toggle Auto DJ</span><span class="keys"><kbd>D</kbd></span></div>
+      <div class="kb-hint">Auto DJ needs tracks in the Queue tab to mix into. It crossfades automatically 8s before the current track ends.</div>
       <div class="kb-row"><span>Toggle library</span><span class="keys"><kbd>Tab</kbd></span></div>
       <div class="kb-row"><span>Show this legend</span><span class="keys"><kbd>?</kbd></span></div>
       <div class="kb-hint">Shortcuts are disabled while typing in a text field.</div>
@@ -508,6 +527,8 @@
       <div class="cf-labels"><span>A</span><span>B</span></div>
       <div class="crossfader" id="crossfader" title="Blend between Deck A and B (←/→ keys)"><div class="handle" id="cfHandle"></div></div>
     </div>
+    <button class="autodj-btn" id="autoDjBtn" title="Auto-mix from the queue: syncs BPM and crossfades automatically"><span class="dot"></span><span>AUTO-DJ</span></button>
+    <div class="autodj-status" id="autoDjStatus"></div>
   </div>
 
   <!-- DECK R -->
@@ -801,6 +822,7 @@ function startTimeLoop(){
       drawWaveform(deck.buffer, canvas, pos/dur);
     }
   });
+  if(typeof checkAutoDj === 'function') checkAutoDj();
   requestAnimationFrame(startTimeLoop);
 }
 requestAnimationFrame(startTimeLoop);
@@ -1301,6 +1323,111 @@ function renderQueue(){
   });
 }
 
+// ---------- Auto DJ ----------
+const autoDjBtn = document.getElementById('autoDjBtn');
+let autoDjOn = false;
+let autoDjActiveSide = 'L';
+let autoDjTransitioning = false;
+const AUTO_DJ_TRANSITION_SEC = 8; // crossfade duration in seconds
+const AUTO_DJ_LEAD_SEC = 8; // start transition when this many seconds remain
+
+function otherSideOf(side){ return side === 'L' ? 'R' : 'L'; }
+function deckBySide(side){ return side === 'L' ? deckL : deckR; }
+
+function startAutoDjTransition(fromSide){
+  if(queue.length === 0){ autoDjTransitioning = false; return; }
+  const toSide = otherSideOf(fromSide);
+  const fromDeck = deckBySide(fromSide);
+  const toDeck = deckBySide(toSide);
+  autoDjTransitioning = true;
+
+  const libIdx = queue.shift();
+  const track = library[libIdx];
+  if(!track){ autoDjTransitioning = false; renderQueue(); return; }
+  assignTrackToDeck(track, toSide);
+  renderQueue();
+
+  // Match tempo of the incoming track to the outgoing track's current speed
+  if(toDeck.baseBpm && fromDeck.bpm){
+    toDeck.playbackRate = (fromDeck.bpm * fromDeck.playbackRate) / toDeck.baseBpm;
+    toDeck.bpm = toDeck.baseBpm * toDeck.playbackRate;
+    document.getElementById('bpmVal'+toSide).textContent = Math.round(toDeck.bpm);
+  }
+  toDeck.pausedAt = 0;
+  playDeck(toDeck, document.getElementById('play'+toSide));
+
+  const startPct = currentCfPct;
+  const endPct = toSide === 'R' ? 1 : 0;
+  const startTime = performance.now();
+  function animate(now){
+    if(!autoDjOn){ autoDjTransitioning = false; return; } // aborted mid-transition
+    const t = Math.min(1, (now - startTime) / (AUTO_DJ_TRANSITION_SEC*1000));
+    setCFPct(startPct + (endPct - startPct) * t);
+    if(t < 1){
+      requestAnimationFrame(animate);
+    } else {
+      pauseDeck(fromDeck, document.getElementById('play'+fromSide));
+      fromDeck.pausedAt = 0;
+      autoDjActiveSide = toSide;
+      autoDjTransitioning = false;
+      updateAutoDjStatus();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function checkAutoDj(){
+  if(!autoDjOn || autoDjTransitioning) return;
+  const deck = deckBySide(autoDjActiveSide);
+  if(!deck.buffer || !deck.isPlaying) return;
+  const dur = deck.buffer.duration;
+  const remaining = dur - getCurrentPos(deck);
+  if(remaining <= AUTO_DJ_LEAD_SEC && remaining > 0){
+    startAutoDjTransition(autoDjActiveSide);
+  }
+  updateAutoDjStatus();
+}
+
+function enableAutoDj(){
+  if(deckL.isPlaying) autoDjActiveSide = 'L';
+  else if(deckR.isPlaying) autoDjActiveSide = 'R';
+  else if(deckL.buffer){ autoDjActiveSide = 'L'; playDeck(deckL, document.getElementById('playL')); }
+  else if(deckR.buffer){ autoDjActiveSide = 'R'; playDeck(deckR, document.getElementById('playR')); }
+  else if(queue.length > 0){
+    const libIdx = queue.shift();
+    const track = library[libIdx];
+    assignTrackToDeck(track, 'L');
+    renderQueue();
+    autoDjActiveSide = 'L';
+    playDeck(deckL, document.getElementById('playL'));
+  } else {
+    alert('Load a track or add tracks to the queue first.');
+    return false;
+  }
+  return true;
+}
+
+function updateAutoDjStatus(){
+  const statusEl = document.getElementById('autoDjStatus');
+  if(!statusEl) return;
+  if(!autoDjOn){ statusEl.textContent = ''; return; }
+  if(autoDjTransitioning){ statusEl.textContent = 'Mixing into next track…'; return; }
+  statusEl.textContent = `Playing Deck ${autoDjActiveSide} · ${queue.length} queued`;
+}
+
+autoDjBtn.addEventListener('click', ()=>{
+  if(!autoDjOn){
+    const started = enableAutoDj();
+    if(!started) return;
+    autoDjOn = true;
+  } else {
+    autoDjOn = false;
+    autoDjTransitioning = false;
+  }
+  autoDjBtn.classList.toggle('on', autoDjOn);
+  updateAutoDjStatus();
+});
+
 window.addEventListener('resize', ()=>{
   if(deckL.buffer) drawWaveform(deckL.buffer, document.getElementById('waveL'));
   if(deckR.buffer) drawWaveform(deckR.buffer, document.getElementById('waveR'));
@@ -1452,6 +1579,7 @@ document.addEventListener('keydown', (e)=>{
 
   if(e.key === 'g' || e.key === 'G'){ toggleAutoGain(); return; }
   if(e.key === ' '){ e.preventDefault(); toggleRecording(); return; }
+  if(e.key === 'd' || e.key === 'D'){ e.preventDefault(); autoDjBtn.click(); return; }
 
   const k = e.key.toLowerCase();
 
