@@ -882,10 +882,14 @@ function startTimeLoop(){
       drawWaveform(deck, canvas, pos/dur);
     }
   });
-  if(typeof checkAutoDj === 'function') checkAutoDj();
   requestAnimationFrame(startTimeLoop);
 }
 requestAnimationFrame(startTimeLoop);
+
+// Auto-DJ's transition check runs on its own interval (not requestAnimationFrame) so it
+// keeps working even if the browser tab is minimized or backgrounded — rAF gets throttled
+// or fully paused in that case, but setInterval keeps ticking (at worst, throttled to ~1/sec).
+setInterval(()=>{ if(typeof checkAutoDj === 'function') checkAutoDj(); }, 300);
 
 function playDeck(deck, btn){
   if(!deck.buffer) return;
