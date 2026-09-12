@@ -15,10 +15,11 @@
     --text: #ece7f0;
     --text-dim: #83798f;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-touch-callout:none;}
   html,body{
     margin:0; height:100%; background:var(--bg); color:var(--text);
     font-family: 'Segoe UI', system-ui, sans-serif; overflow:hidden;
+    overscroll-behavior:none; touch-action:manipulation;
   }
   .app{
     display:grid;
@@ -121,11 +122,13 @@
 
   .loop-row{ display:flex; gap:4px; justify-content:center; }
   .loop-btn{
-    padding:4px 8px; border-radius:5px; border:1px solid var(--line);
+    padding:8px 8px; min-height:32px; border-radius:5px; border:1px solid var(--line);
     background:var(--panel-raised); color:var(--text-dim); font-size:10px; cursor:pointer;
+    touch-action:manipulation;
   }
   .loop-btn.active{ background:#3a2a12; border-color:var(--amber); color:var(--amber); }
   .deckR .loop-btn.active{ background:#0f2f33; border-color:var(--cyan); color:var(--cyan); }
+  .loop-btn:active, .cue:active, .tbtn:active, .fx-toggle:active{ transform:scale(0.94); }
 
   .sidecol{ display:flex; flex-direction:column; gap:8px; width:76px; }
   .eq{ display:flex; flex-direction:column; gap:8px; align-items:center; }
@@ -143,12 +146,14 @@
 
   .hotcues{ display:grid; grid-template-columns:1fr 1fr; gap:5px; }
   .cue{
-    height:34px; border-radius:6px; border:1px solid var(--line);
+    height:40px; border-radius:6px; border:1px solid var(--line);
     background:var(--panel-raised); color:var(--text-dim); font-size:11px;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
+    touch-action:manipulation;
   }
   .cue.set{ background:#3a2a12; border-color:var(--amber); color:var(--amber); }
   .deckR .cue.set{ background:#0f2f33; border-color:var(--cyan); color:var(--cyan); }
+  .cue.clearing{ background:#4a1414 !important; border-color:#c0392b !important; color:#ff8a7a !important; }
 
   .mixer{
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
@@ -493,10 +498,10 @@
           <div class="knob" id="lowL" title="Drag up/down to adjust low frequencies"><div class="indicator"></div></div>
         </div>
         <div class="hotcues" id="cuesL">
-          <div class="cue" data-i="0" title="Hot cue 1 (key: 1)">1<span class="khint">1</span></div>
-          <div class="cue" data-i="1" title="Hot cue 2 (key: 2)">2<span class="khint">2</span></div>
-          <div class="cue" data-i="2" title="Hot cue 3 (key: 3)">3<span class="khint">3</span></div>
-          <div class="cue" data-i="3" title="Hot cue 4 (key: 4)">4<span class="khint">4</span></div>
+          <div class="cue" data-i="0" title="Hot cue 1 (key: 1) — hold to clear">1<span class="khint">1</span></div>
+          <div class="cue" data-i="1" title="Hot cue 2 (key: 2) — hold to clear">2<span class="khint">2</span></div>
+          <div class="cue" data-i="2" title="Hot cue 3 (key: 3) — hold to clear">3<span class="khint">3</span></div>
+          <div class="cue" data-i="3" title="Hot cue 4 (key: 4) — hold to clear">4<span class="khint">4</span></div>
         </div>
         <div class="fx-row">
           <div class="fx-toggle" id="fxRevL" title="Reverb on/off (key: E)">REV<span class="khint">E</span></div>
@@ -575,10 +580,10 @@
           <div class="knob" id="lowR" title="Drag up/down to adjust low frequencies"><div class="indicator"></div></div>
         </div>
         <div class="hotcues" id="cuesR">
-          <div class="cue" data-i="0" title="Hot cue 1 (key: 7)">1<span class="khint">7</span></div>
-          <div class="cue" data-i="1" title="Hot cue 2 (key: 8)">2<span class="khint">8</span></div>
-          <div class="cue" data-i="2" title="Hot cue 3 (key: 9)">3<span class="khint">9</span></div>
-          <div class="cue" data-i="3" title="Hot cue 4 (key: 0)">4<span class="khint">0</span></div>
+          <div class="cue" data-i="0" title="Hot cue 1 (key: 7) — hold to clear">1<span class="khint">7</span></div>
+          <div class="cue" data-i="1" title="Hot cue 2 (key: 8) — hold to clear">2<span class="khint">8</span></div>
+          <div class="cue" data-i="2" title="Hot cue 3 (key: 9) — hold to clear">3<span class="khint">9</span></div>
+          <div class="cue" data-i="3" title="Hot cue 4 (key: 0) — hold to clear">4<span class="khint">0</span></div>
         </div>
         <div class="fx-row">
           <div class="fx-toggle" id="fxRevR" title="Reverb on/off (key: I)">REV<span class="khint">I</span></div>
@@ -1076,8 +1081,30 @@ function setupDeck(prefix, deck){
 
   // Hot cues
   cuesWrap.querySelectorAll('.cue').forEach(cueEl=>{
+    const i = +cueEl.dataset.i;
+    let pressTimer = null;
+    let longPressFired = false;
+
+    cueEl.addEventListener('pointerdown', ()=>{
+      longPressFired = false;
+      pressTimer = setTimeout(()=>{
+        longPressFired = true;
+        if(deck.cues[i] !== null){
+          deck.cues[i] = null;
+          cueEl.classList.remove('set');
+          cueEl.classList.add('clearing');
+          setTimeout(()=> cueEl.classList.remove('clearing'), 200);
+          if(navigator.vibrate) navigator.vibrate(15);
+          if(deck.buffer) drawWaveform(deck, document.getElementById('wave'+prefix), deck.isPlaying ? getCurrentPos(deck)/deck.buffer.duration : undefined);
+        }
+      }, 550);
+    });
+    cueEl.addEventListener('pointerup', ()=> clearTimeout(pressTimer));
+    cueEl.addEventListener('pointercancel', ()=> clearTimeout(pressTimer));
+    cueEl.addEventListener('contextmenu', e=> e.preventDefault());
+
     cueEl.addEventListener('click', ()=>{
-      const i = +cueEl.dataset.i;
+      if(longPressFired){ longPressFired = false; return; } // swallow click that follows a long-press
       if(!deck.buffer) return;
       if(deck.cues[i]===null){
         deck.cues[i] = deck.isPlaying ? (ctx.currentTime - deck.startedAt)*deck.playbackRate : deck.pausedAt;
