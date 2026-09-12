@@ -739,10 +739,10 @@ async function loadFile(deck, file, nameEl, waveCanvas, bpmValEl, loadingEl){
     deck._rms = computeRMS(audioBuf);
     nameEl.textContent = file.name;
     nameEl.classList.remove('empty');
-    drawWaveform(audioBuf, waveCanvas);
     const bpm = detectBPM(audioBuf);
     deck.bpm = bpm; deck.baseBpm = bpm;
     bpmValEl.textContent = bpm;
+    drawWaveform(deck, waveCanvas);
     updateMasterBpm();
     deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
   } finally {
@@ -757,16 +757,54 @@ function updateMasterBpm(){
   else readout.textContent = '— BPM';
 }
 
-function drawWaveform(buffer, canvas, playheadPct){
+function drawWaveform(deck, canvas, playheadPctOverride){
+  const buffer = deck.buffer;
+  if(!buffer) return;
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth, h = canvas.clientHeight;
   canvas.width = w*dpr; canvas.height = h*dpr;
   const g = canvas.getContext('2d');
   g.scale(dpr,dpr);
   g.clearRect(0,0,w,h);
+
+  const dur = buffer.duration;
+  const isDeckR = deck.id === 'R';
+  const accent = isDeckR ? '#3de5ff' : '#ff8a3d';
+  const accentDim = isDeckR ? 'rgba(61,229,255,0.18)' : 'rgba(255,138,61,0.18)';
+
+  // Loop region highlight (drawn first, behind waveform)
+  if(deck.loopBeats && deck.loopEnd > deck.loopStart){
+    const lx1 = (deck.loopStart/dur) * w;
+    const lx2 = (deck.loopEnd/dur) * w;
+    g.fillStyle = accentDim;
+    g.fillRect(lx1, 0, Math.max(1, lx2-lx1), h);
+  }
+
+  // Beat grid — vertical tick marks every beat, brighter every 4th (bar line)
+  if(deck.bpm){
+    const secPerBeat = 60 / deck.bpm;
+    const totalBeats = Math.floor(dur / secPerBeat);
+    for(let b=0; b<=totalBeats; b++){
+      const t = b * secPerBeat;
+      const x = (t/dur) * w;
+      const isBar = (b % 4 === 0);
+      g.strokeStyle = isBar ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)';
+      g.lineWidth = isBar ? 1 : 1;
+      g.beginPath();
+      g.moveTo(x, isBar ? 0 : h*0.3);
+      g.lineTo(x, isBar ? h : h*0.7);
+      g.stroke();
+    }
+  }
+
+  // Waveform (gradient fill by amplitude)
   const data = buffer.getChannelData(0);
   const step = Math.ceil(data.length / w);
-  g.strokeStyle = '#3de5ff';
+  const grad = g.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, accent);
+  grad.addColorStop(0.5, isDeckR ? '#8fd8ff' : '#ffc38a');
+  grad.addColorStop(1, accent);
+  g.strokeStyle = grad;
   g.beginPath();
   for(let x=0; x<w; x++){
     let min=1, max=-1;
@@ -778,9 +816,27 @@ function drawWaveform(buffer, canvas, playheadPct){
     g.moveTo(x, y1); g.lineTo(x, y2);
   }
   g.stroke();
-  if(typeof playheadPct === 'number'){
+
+  // Hot cue markers
+  if(deck.cues){
+    deck.cues.forEach((cueTime, i)=>{
+      if(cueTime === null) return;
+      const cx = (cueTime/dur) * w;
+      g.fillStyle = '#5dd97a';
+      g.beginPath();
+      g.moveTo(cx-4, 0); g.lineTo(cx+4, 0); g.lineTo(cx, 7); g.closePath();
+      g.fill();
+      g.strokeStyle = 'rgba(93,217,122,0.5)';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(cx,0); g.lineTo(cx,h); g.stroke();
+    });
+  }
+
+  // Playhead
+  const playheadPct = typeof playheadPctOverride === 'number' ? playheadPctOverride : null;
+  if(playheadPct !== null){
     const px = Math.max(0, Math.min(w, playheadPct * w));
-    g.strokeStyle = '#ff8a3d';
+    g.strokeStyle = '#ffffff';
     g.lineWidth = 2;
     g.beginPath();
     g.moveTo(px, 0); g.lineTo(px, h);
@@ -819,7 +875,7 @@ function startTimeLoop(){
     const dur = deck.buffer.duration;
     timeEl.textContent = formatTime(pos) + ' / ' + formatTime(dur);
     if(!canvas._dragging){
-      drawWaveform(deck.buffer, canvas, pos/dur);
+      drawWaveform(deck, canvas, pos/dur);
     }
   });
   if(typeof checkAutoDj === 'function') checkAutoDj();
@@ -1196,14 +1252,18 @@ function assignTrackToDeck(track, target){
   deck.buffer = track.buffer;
   deck.pausedAt = 0;
   deck.loopBeats = null;
+  deck.cues = [null,null,null,null];
   deck._rms = track.rms;
   deck.bpm = track.bpm; deck.baseBpm = track.bpm;
   nameEl.textContent = track.name;
   nameEl.classList.remove('empty');
-  drawWaveform(track.buffer, waveCanvas);
+  drawWaveform(deck, waveCanvas);
   bpmValEl.textContent = track.bpm;
   deck.gainNode.gain.setTargetAtTime(computeTargetGain(deck), ctx.currentTime, 0.02);
   updateMasterBpm();
+  document.querySelectorAll('#cues'+target+' .cue').forEach(c=>c.classList.remove('set'));
+  const loopRowEl = document.getElementById('loopRow'+target);
+  if(loopRowEl) loopRowEl.querySelectorAll('.loop-btn').forEach(b=>b.classList.remove('active'));
   if(loadingEl) loadingEl.classList.remove('show');
 }
 
@@ -1429,8 +1489,8 @@ autoDjBtn.addEventListener('click', ()=>{
 });
 
 window.addEventListener('resize', ()=>{
-  if(deckL.buffer) drawWaveform(deckL.buffer, document.getElementById('waveL'));
-  if(deckR.buffer) drawWaveform(deckR.buffer, document.getElementById('waveR'));
+  if(deckL.buffer) drawWaveform(deckL, document.getElementById('waveL'));
+  if(deckR.buffer) drawWaveform(deckR, document.getElementById('waveR'));
 });
 
 
